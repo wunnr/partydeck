@@ -1,12 +1,5 @@
 use crate::app::PadFilterType;
 
-#[derive(Clone)]
-pub struct Instance {
-    pub devices: Vec<usize>,
-    pub profname: String,
-    pub profselection: usize,
-}
-
 use evdev::*;
 
 #[derive(Clone, PartialEq, Copy)]
@@ -87,6 +80,14 @@ impl InputDevice {
     }
     pub fn has_button_held(&self) -> bool {
         self.has_button_held
+    }
+    pub fn info(&self) -> DeviceInfo {
+        DeviceInfo {
+            path: self.path().to_string(),
+            vendor: self.vendor(),
+            enabled: self.enabled(),
+            device_type: self.device_type(),
+        }
     }
     pub fn poll(&mut self) -> Option<PadButton> {
         let mut btn: Option<PadButton> = None;

@@ -33,53 +33,6 @@ pub fn get_screen_resolution() -> (u32, u32) {
     (1920, 1080)
 }
 
-// Gets the resolution for a specific instance based on the number of instances
-pub fn get_instance_resolution(
-    playercount: usize,
-    i: usize,
-    basewidth: u32,
-    baseheight: u32,
-    two_player_vertical: bool,
-) -> (u32, u32) {
-    let (w, h) = match playercount {
-        1 => (basewidth, baseheight),
-        2 => {
-            if two_player_vertical {
-                (basewidth / 2, baseheight)
-            } else {
-                (basewidth, baseheight / 2)
-            }
-        }
-        3 => {
-            if i == 0 {
-                (basewidth, baseheight / 2)
-            } else {
-                (basewidth / 2, baseheight / 2)
-            }
-        }
-        4 => (basewidth / 2, baseheight / 2),
-        // 5 => {
-        //     if i < 2 {
-        //         (basewidth / 2, baseheight / 2)
-        //     } else {
-        //         (basewidth / 3, baseheight / 2)
-        //     }
-        // }
-        // 6 => (basewidth / 3, baseheight / 2),
-        // 7 => {
-        //     if i < 2 || i > 4 {
-        //         (basewidth / 2, baseheight / 3)
-        //     } else {
-        //         (basewidth / 3, baseheight / 3)
-        //     }
-        // }
-        // 8 => (basewidth / 2, baseheight / 4),
-        _ => (basewidth, baseheight),
-    };
-    println!("Resolution for instance {}/{playercount}: {w}x{h}", i + 1);
-    return (w, h);
-}
-
 // Sends the splitscreen script to the active KWin session through DBus
 pub fn kwin_dbus_start_script(file: PathBuf) -> Result<(), Box<dyn Error>> {
     println!("Loading script {}...", file.display());

@@ -2,6 +2,7 @@ mod app;
 mod game;
 mod handler;
 mod input;
+mod instance;
 mod launch;
 mod paths;
 mod util;

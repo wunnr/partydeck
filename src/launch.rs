@@ -4,6 +4,7 @@ use crate::app::PartyConfig;
 use crate::game::Game;
 use crate::handler::*;
 use crate::input::*;
+use crate::instance::*;
 use crate::launch::Game::{ExecRef, HandlerRef};
 use crate::paths::*;
 use crate::util::*;
@@ -161,11 +162,6 @@ pub fn launch_cmd(
         }
     }
 
-    let (screen_width, screen_height) = get_screen_resolution();
-    let scale_factor = cfg.render_scale as f32 / 100.0;
-    let width = (screen_width as f32 * scale_factor) as u32;
-    let height = (screen_height as f32 * scale_factor) as u32;
-
     cmd.push_str(&format!("cd \"{gamedir}\"; "));
 
     for (i, instance) in instances.iter().enumerate() {
@@ -175,8 +171,7 @@ pub fn launch_cmd(
             HandlerRef(h) => &format!("{path_prof}/saves/{}", h.uid.as_str()),
         };
 
-        let (gsc_width, gsc_height) =
-            get_instance_resolution(instances.len(), i, width, height, cfg.vertical_two_player);
+        let (gsc_width, gsc_height) = (instance.width, instance.height);
 
         if gsc_height < 600 && gsc_lowres_warn {
             msg(

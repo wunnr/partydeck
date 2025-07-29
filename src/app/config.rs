@@ -16,8 +16,8 @@ pub enum PadFilterType {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PartyConfig {
     pub force_sdl: bool,
-    pub render_scale: i32,
     pub enable_kwin_script: bool,
+    pub gamescope_fix_lowres: bool,
     pub gamescope_sdl_backend: bool,
     pub kbm_support: bool,
     pub proton_version: String,
@@ -38,7 +38,7 @@ pub fn load_cfg() -> PartyConfig {
     // Return default settings if file doesn't exist or has error
     PartyConfig {
         force_sdl: false,
-        render_scale: 100,
+        gamescope_fix_lowres: true,
         enable_kwin_script: true,
         gamescope_sdl_backend: true,
         kbm_support: true,

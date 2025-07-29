@@ -124,3 +124,10 @@ pub fn remove_guest_profiles() -> Result<(), Box<dyn Error>> {
     }
     Ok(())
 }
+
+pub static GUEST_NAMES: [&str; 31] = [
+    "Blinky", "Pinky", "Inky", "Clyde", "Beatrice", "Battler", "Miyao", "Rena", "Ellie", "Joel",
+    "Leon", "Ada", "Madeline", "Theo", "Yokatta", "Wyrm", "Brodiee", "Supreme", "Conk", "Gort",
+    "Lich", "Smores", "Canary", "Trico", "Yorda", "Wander", "Agro", "Jak", "Daxter", "Soap",
+    "Ghost",
+];
