@@ -63,8 +63,6 @@ pub fn launch_cmd(
     let party = PATH_PARTY.display();
     let steam = PATH_STEAM.display();
 
-    let mut gsc_lowres_warn = true;
-
     let gamedir = match game {
         ExecRef(e) => &format!(
             "{}",
@@ -172,14 +170,6 @@ pub fn launch_cmd(
         };
 
         let (gsc_width, gsc_height) = (instance.width, instance.height);
-
-        if gsc_height < 600 && gsc_lowres_warn {
-            msg(
-                "Resolution warning",
-                "Instance resolution is below 600p! The game may experience graphical issues or not run at all. Increase the resolution scale in settings if this happens.",
-            );
-            gsc_lowres_warn = false;
-        }
 
         let gsc_sdl = match cfg.gamescope_sdl_backend {
             true => "--backend=sdl",
