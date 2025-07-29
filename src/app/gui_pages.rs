@@ -185,12 +185,12 @@ impl PartyApp {
                     .max_height(12.0),
             );
             let add_text = match self.instance_add_dev {
-                None => "New Instance",
+                None => "Add New Instance",
                 Some(i) => &format!("Add to Instance {}", i + 1),
             };
             ui.label(add_text);
 
-            ui.label("      ");
+            ui.add(egui::Separator::default().vertical());
 
             ui.add(
                 egui::Image::new(egui::include_image!("../../res/BTN_EAST.png")).max_height(12.0),
@@ -202,7 +202,7 @@ impl PartyApp {
             };
             ui.label(remove_text);
 
-            ui.label("      ");
+            ui.add(egui::Separator::default().vertical());
 
             if self.instances.len() > 0 && self.instance_add_dev == None {
                 ui.add(
@@ -210,7 +210,7 @@ impl PartyApp {
                         .max_height(12.0),
                 );
                 ui.label("[A]");
-                ui.label("Add Device");
+                ui.label("Invite to Instance");
             }
         });
 
@@ -232,7 +232,7 @@ impl PartyApp {
                 }
 
                 if self.instance_add_dev == None {
-                    if ui.button("➕ Add Device").clicked() {
+                    if ui.button("➕ Invite New Device").clicked() {
                         self.instance_add_dev = Some(i);
                     }
                 } else if self.instance_add_dev == Some(i) {
