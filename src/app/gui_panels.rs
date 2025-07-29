@@ -111,7 +111,7 @@ impl PartyApp {
             });
     }
 
-    pub fn display_panel_right(&mut self, ui: &mut Ui) {
+    pub fn display_panel_right(&mut self, ui: &mut Ui, ctx: &egui::Context) {
         ui.add_space(6.0);
 
         ui.heading("Devices");
@@ -134,6 +134,20 @@ impl PartyApp {
 
             ui.label(dev_text);
         }
+
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+            ui.link("Devices not being detected?").on_hover_ui(|ui| {
+                ui.style_mut().interaction.selectable_labels = true;
+                ui.label("Try adding your user to the `input` group.");
+                ui.label("In a terminal, enter the following command:");
+                ui.horizontal(|ui| {
+                    ui.code("sudo usermod -aG input $USER");
+                    if ui.button("📎").clicked() {
+                        ctx.copy_text("sudo usermod -aG input $USER".to_string());
+                    }
+                });
+            });
+        });
     }
 
     pub fn panel_left_game_list(&mut self, ui: &mut Ui) {
@@ -155,7 +169,6 @@ impl PartyApp {
                 };
 
                 let popup_id = ui.make_persistent_id(format!("gamectx{}", i));
-
                 egui::popup::popup_below_widget(
                     ui,
                     popup_id,

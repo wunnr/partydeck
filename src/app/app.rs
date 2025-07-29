@@ -3,6 +3,7 @@ use std::thread::sleep;
 use super::config::*;
 use crate::game::*;
 use crate::input::*;
+use crate::instance::*;
 use crate::launch::launch_game;
 use crate::util::*;
 
@@ -109,7 +110,7 @@ impl eframe::App for PartyApp {
                     if self.task.is_some() {
                         ui.disable();
                     }
-                    self.display_panel_right(ui);
+                    self.display_panel_right(ui, ctx);
                 });
         }
 
@@ -250,6 +251,8 @@ impl PartyApp {
                                 devices: vec![i],
                                 profname: String::new(),
                                 profselection: 0,
+                                width: 0,
+                                height: 0,
                             });
                         }
                     }
@@ -311,30 +314,12 @@ impl PartyApp {
     }
 
     pub fn prepare_game_launch(&mut self) {
+        set_instance_resolutions(&mut self.instances, &self.options);
+        set_instance_names(&mut self.instances, &self.profiles);
+
         let game = cur_game!(self).to_owned();
-        let mut instances = self.instances.clone();
-        let mut guests = GUEST_NAMES.to_vec();
-
-        for instance in &mut instances {
-            if instance.profselection == 0 {
-                let i = fastrand::usize(..guests.len());
-                instance.profname = format!(".{}", guests[i]);
-                guests.swap_remove(i);
-            } else {
-                instance.profname = self.profiles[instance.profselection].to_owned();
-            }
-        }
-
-        let dev_infos: Vec<DeviceInfo> = self
-            .input_devices
-            .iter()
-            .map(|p| DeviceInfo {
-                path: p.path().to_string(),
-                vendor: p.vendor(),
-                enabled: p.enabled(),
-                device_type: p.device_type(),
-            })
-            .collect();
+        let instances = self.instances.clone();
+        let dev_infos: Vec<DeviceInfo> = self.input_devices.iter().map(|p| p.info()).collect();
 
         let cfg = self.options.clone();
         let _ = save_cfg(&cfg);
@@ -352,9 +337,3 @@ impl PartyApp {
         );
     }
 }
-
-static GUEST_NAMES: [&str; 21] = [
-    "Blinky", "Pinky", "Inky", "Clyde", "Beatrice", "Battler", "Ellie", "Joel", "Leon", "Ada",
-    "Madeline", "Theo", "Yokatta", "Wyrm", "Brodiee", "Supreme", "Conk", "Gort", "Lich", "Smores",
-    "Canary",
-];

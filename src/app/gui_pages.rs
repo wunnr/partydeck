@@ -60,8 +60,8 @@ impl PartyApp {
                 if ui.button("Restore Defaults").clicked() {
                     self.options = PartyConfig {
                         force_sdl: false,
-                        render_scale: 100,
                         enable_kwin_script: true,
+                        gamescope_fix_lowres: true,
                         gamescope_sdl_backend: true,
                         kbm_support: true,
                         proton_version: "".to_string(),
@@ -405,9 +405,9 @@ impl PartyApp {
     }
 
     pub fn display_settings_gamescope(&mut self, ui: &mut Ui) {
-        let render_scale_slider = ui.add(
-            egui::Slider::new(&mut self.options.render_scale, 35..=200)
-                .text("Instance resolution scale"),
+        let gamescope_lowres_fix_check = ui.checkbox(
+            &mut self.options.gamescope_fix_lowres,
+            "Automatically fix low resolution instances",
         );
         let gamescope_sdl_backend_check = ui.checkbox(
             &mut self.options.gamescope_sdl_backend,
@@ -418,8 +418,8 @@ impl PartyApp {
             "Enable keyboard and mouse support through custom Gamescope",
         );
 
-        if render_scale_slider.hovered() {
-            self.infotext = "PartyDeck divides each instance by a base resolution. 100% render scale = your monitor's native resolution. Lower this value to increase performance, but may cause graphical issues or even break some games. If you're using a small screen like the Steam Deck's handheld screen, increase this to 150% or higher.".to_string();
+        if gamescope_lowres_fix_check.hovered() {
+            self.infotext = "Many games have graphical problems or even crash when running at resolutions below 600p. If this is enabled, any instances below 600p will automatically be resized before launching.".to_string();
         }
         if gamescope_sdl_backend_check.hovered() {
             self.infotext = "Runs gamescope sessions using the SDL backend. If unsure, leave this checked. If gamescope sessions only show a black screen or give an error (especially on Nvidia + Wayland), try disabling this.".to_string();
