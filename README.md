@@ -41,10 +41,7 @@ If you're in desktop mode, simply run `partydeck-rs`. To use PartyDeck in Gaming
 You'll need to install KDE Plasma, Gamescope, and Bubblewrap using your distro's package manager. Then, while in a KDE Plasma session, run `partydeck-rs` to get started. If you're running Steam, make sure none of the controllers are using a Steam Input desktop layout, as Steam Input causes issues such as duplicate controllers being detected.
 
 ### Getting Started
-
-On first launch, the app will automatically download UMU Launcher and Goldberg Steam Emu. This may take a while depending on your download speed, but it only needs to be done once.
-
-Once in the main menu, click the + button to add a handler. Create profiles if you want to store save data, and have a look through the settings menu.
+Once in the main menu, click the + button to add a game: this can be just a regular Linux executable, a Windows game (.exe), or a PartyDeck Handler (.pdh). Create profiles if you want to store save data, and have a look through the settings menu.
 
 ## Building
 
