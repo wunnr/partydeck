@@ -65,7 +65,7 @@ impl Game {
             Game::HandlerRef(handler) => handler.display(),
         }
     }
-    pub fn icon(&self) -> ImageSource {
+    pub fn icon(&self) -> ImageSource<'_> {
         match self {
             Game::ExecRef(_) => egui::include_image!("../res/executable_icon.png"),
             Game::HandlerRef(handler) => {
