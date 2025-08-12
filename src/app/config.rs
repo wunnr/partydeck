@@ -21,9 +21,26 @@ pub struct PartyConfig {
     pub gamescope_sdl_backend: bool,
     pub kbm_support: bool,
     pub proton_version: String,
+    pub proton_separate_pfxs: bool,
     #[serde(default)]
     pub vertical_two_player: bool,
     pub pad_filter_type: PadFilterType,
+}
+
+impl Default for PartyConfig {
+    fn default() -> Self {
+        PartyConfig {
+            force_sdl: false,
+            enable_kwin_script: true,
+            gamescope_fix_lowres: true,
+            gamescope_sdl_backend: true,
+            kbm_support: true,
+            proton_version: "".to_string(),
+            proton_separate_pfxs: false,
+            vertical_two_player: false,
+            pad_filter_type: PadFilterType::NoSteamInput,
+        }
+    }
 }
 
 pub fn load_cfg() -> PartyConfig {
@@ -36,16 +53,7 @@ pub fn load_cfg() -> PartyConfig {
     }
 
     // Return default settings if file doesn't exist or has error
-    PartyConfig {
-        force_sdl: false,
-        gamescope_fix_lowres: true,
-        enable_kwin_script: true,
-        gamescope_sdl_backend: true,
-        kbm_support: true,
-        proton_version: "".to_string(),
-        vertical_two_player: false,
-        pad_filter_type: PadFilterType::NoSteamInput,
-    }
+    return PartyConfig::default();
 }
 
 pub fn save_cfg(config: &PartyConfig) -> Result<(), Box<dyn Error>> {

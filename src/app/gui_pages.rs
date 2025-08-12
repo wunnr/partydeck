@@ -58,16 +58,7 @@ impl PartyApp {
                     }
                 }
                 if ui.button("Restore Defaults").clicked() {
-                    self.options = PartyConfig {
-                        force_sdl: false,
-                        enable_kwin_script: true,
-                        gamescope_fix_lowres: true,
-                        gamescope_sdl_backend: true,
-                        kbm_support: true,
-                        proton_version: "".to_string(),
-                        vertical_two_player: false,
-                        pad_filter_type: PadFilterType::NoSteamInput,
-                    };
+                    self.options = PartyConfig::default();
                     self.input_devices = scan_input_devices(&self.options.pad_filter_type);
                 }
             });
@@ -349,6 +340,14 @@ impl PartyApp {
             self.infotext = "Specify a Proton version. This can be a path, e.g. \"/path/to/proton\" or just a name, e.g. \"GE-Proton\" for the latest version of Proton-GE. If left blank, this will default to \"GE-Proton\". If unsure, leave this blank.".to_string();
         }
         });
+
+        let proton_separate_pfxs_check = ui.checkbox(
+            &mut self.options.proton_separate_pfxs,
+            "Run instances in separate Proton prefixes",
+        );
+        if proton_separate_pfxs_check.hovered() {
+            self.infotext = "Runs each instance in its own Proton prefix. If unsure, leave this unchecked. This option will take up more space on the disk, but may also help with certain Proton-related issues such as only one instance of a game starting.".to_string();
+        }
 
         ui.separator();
 

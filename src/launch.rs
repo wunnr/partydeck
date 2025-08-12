@@ -103,7 +103,7 @@ pub fn launch_cmd(
             true => "GE-Proton",
             false => cfg.proton_version.as_str(),
         };
-        cmd.push_str(&format!("PROTON_VERB=run WINEPREFIX={party}/pfx "));
+        cmd.push_str(&format!("PROTON_VERB=run "));
         cmd.push_str(&format!("PROTONPATH={protonpath} "));
 
         if let HandlerRef(h) = game {
@@ -168,6 +168,14 @@ pub fn launch_cmd(
             ExecRef(_) => "",
             HandlerRef(h) => &format!("{path_prof}/saves/{}", h.uid.as_str()),
         };
+
+        let pfx = match cfg.proton_separate_pfxs {
+            true => &format!("{party}/pfx{}", i + 1),
+            false => &format!("{party}/pfx"),
+        };
+        if win {
+            cmd.push_str(&format!("WINEPREFIX={pfx} "));
+        }
 
         let (gsc_width, gsc_height) = (instance.width, instance.height);
 
@@ -241,7 +249,7 @@ pub fn launch_cmd(
                 ));
             }
             if h.win {
-                let path_windata = format!("{party}/pfx/drive_c/users/steamuser/");
+                let path_windata = format!("{pfx}/drive_c/users/steamuser/");
                 if h.win_unique_appdata {
                     binds.push_str(&format!(
                         "--bind \"{path_save}/_AppData\" \"{path_windata}/AppData\" "

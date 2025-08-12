@@ -407,6 +407,14 @@ impl LightPartyApp {
         }
         });
 
+        let proton_separate_pfxs_check = ui.checkbox(
+            &mut self.options.proton_separate_pfxs,
+            "Run instances in separate Proton prefixes",
+        );
+        if proton_separate_pfxs_check.hovered() {
+            self.infotext = "Runs each instance in its own Proton prefix. If unsure, leave this unchecked. This option will take up more space on the disk, but may also help with certain Proton-related issues such as only one instance of a game starting.".to_string();
+        }
+
         let gamescope_lowres_fix_check = ui.checkbox(
             &mut self.options.gamescope_fix_lowres,
             "Automatically fix low resolution instances",
