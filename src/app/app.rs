@@ -241,6 +241,12 @@ impl PartyApp {
                         && self.is_device_in_any_instance(i) {
                         continue;
                     }
+                    // Prevent same keyboard/mouse device in multiple instances due to current custom gamescope limitations
+                    // TODO: Remove this when custom gamescope supports the same keyboard/mouse device for multiple instances
+                    if self.input_devices[i].device_type() != DeviceType::Gamepad
+                        && self.is_device_in_any_instance(i) {
+                        continue;
+                    }
 
                     match self.instance_add_dev {
                         Some(inst) => {
