@@ -162,14 +162,19 @@ impl LightPartyApp {
                     {
                         continue;
                     }
-                    if self.is_device_in_any_instance(i) {
+                    if !self.options.allow_multiple_instances_on_same_device
+                        && self.is_device_in_any_instance(i) {
                         continue;
                     }
 
                     match self.instance_add_dev {
                         Some(inst) => {
-                            self.instance_add_dev = None;
-                            self.instances[inst].devices.push(i);
+                            // Add the device in the instance only if it's not already there
+                            if !self.is_device_in_instance(inst, i) {
+                                self.instance_add_dev = None;
+                                self.instances[inst].devices.push(i);
+                            }
+                            else { continue; }
                         }
                         None => {
                             self.instances.push(Instance {
@@ -207,11 +212,18 @@ impl LightPartyApp {
         }
     }
 
-    fn is_device_in_any_instance(&mut self, dev: usize) -> bool {
+    fn is_device_in_any_instance(&self, dev: usize) -> bool {
         for instance in &self.instances {
             if instance.devices.contains(&dev) {
                 return true;
             }
+        }
+        false
+    }
+
+    fn is_device_in_instance(&self, instance_index: usize, dev: usize) -> bool {
+        if self.instances[instance_index].devices.contains(&dev) {
+            return true;
         }
         false
     }
@@ -227,9 +239,34 @@ impl LightPartyApp {
         None
     }
 
+    fn find_device_in_instance_from_end(&mut self, dev: usize) -> Option<(usize, usize)> {
+        for (i, instance) in self.instances.iter().enumerate().rev() {
+            for (d, device) in instance.devices.iter().enumerate() {
+                if device == &dev {
+                    return Some((i, d));
+                }
+            }
+        }
+        None
+    }
+
     pub fn remove_device(&mut self, dev: usize) {
-        if let Some((instance_index, device_index)) = self.find_device_in_instance(dev) {
+        if let Some((instance_index, device_index)) = self.find_device_in_instance_from_end(dev) {
             self.instances[instance_index].devices.remove(device_index);
+            if self.instances[instance_index].devices.is_empty() {
+                self.instances.remove(instance_index);
+            }
+        }
+    }
+
+    pub fn remove_device_instance(&mut self, instance_index: usize, dev: usize) {
+        let device_index = self.instances[instance_index].devices
+            .iter()
+            .position(|device| device == &dev);
+
+        if let Some(d) = device_index {
+            self.instances[instance_index].devices.remove(d);
+
             if self.instances[instance_index].devices.is_empty() {
                 self.instances.remove(instance_index);
             }
@@ -415,6 +452,14 @@ impl LightPartyApp {
             self.infotext = "Runs each instance in its own Proton prefix. If unsure, leave this unchecked. This option will take up more space on the disk, but may also help with certain Proton-related issues such as only one instance of a game starting.".to_string();
         }
 
+        let allow_multiple_instances_on_same_device_check = ui.checkbox(
+            &mut self.options.allow_multiple_instances_on_same_device,
+            "Allow multiple instances on the same device",
+        );
+        if allow_multiple_instances_on_same_device_check.hovered() {
+            self.infotext = "Allow multiple instances on the same device. This can be useful for testing or when one person wants to control multiple instances.".to_string();
+        }
+
         let gamescope_lowres_fix_check = ui.checkbox(
             &mut self.options.gamescope_fix_lowres,
             "Automatically fix low resolution instances",
@@ -484,7 +529,7 @@ impl LightPartyApp {
 
         ui.separator();
 
-        let mut devices_to_remove = Vec::new();
+        let mut devices_to_remove: Vec<(usize,usize)> = Vec::new();
         for (i, instance) in &mut self.instances.iter_mut().enumerate() {
             ui.horizontal(|ui| {
                 ui.label(format!("Instance {}", i + 1));
@@ -515,14 +560,14 @@ impl LightPartyApp {
                     ui.label("  ");
                     ui.label(dev_text);
                     if ui.button("🗑").clicked() {
-                        devices_to_remove.push(dev);
+                        devices_to_remove.push((i, dev));
                     }
                 });
             }
         }
 
-        for d in devices_to_remove {
-            self.remove_device(d);
+        for (i, d) in devices_to_remove {
+            self.remove_device_instance(i, d);
         }
 
         if self.instances.len() > 0 {
