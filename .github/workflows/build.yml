@@ -29,7 +29,7 @@ jobs:
             libxkbcommon-dev \
             libwayland-client0 libwayland-dev wayland-protocols \
             libwayland-egl1-mesa libwayland-bin \
-            libvulkan-dev vulkan-validationlayers-dev \
+            libvulkan-dev vulkan-utility-libraries-dev \
             libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
             libpipewire-0.3-dev \
             libpixman-1-dev libudev-dev \
