@@ -17,9 +17,21 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build
+          sudo apt-get install -y \
+            meson ninja-build cmake pkg-config \
+            build-essential clang \
+            rustc cargo \
+            libx11-dev libx11-xcb-dev libxext-dev libxres-dev \
+            libxcb1-dev libxcb-composite0-dev libxcb-xfixes0-dev \
+            libxcb-randr0-dev libxcb-shape0-dev libxcb-util-dev \
+            libxrender-dev libxtst-dev libxdamage-dev \
+            libwayland-dev libwayland-egl1-mesa libwayland-bin wayland-protocols \
+            libpipewire-0.3-dev \
+            libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
+            libvulkan-dev vulkan-validationlayers-dev \
+            libcap-dev libsystemd-dev
 
-      - name: Gamescope
+      - name: Build Gamescope
         run: |
           ls
           pwd
