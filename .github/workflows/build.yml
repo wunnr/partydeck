@@ -28,6 +28,8 @@ jobs:
           export CC=gcc CXX=g++
           meson build-gcc/ -Dinput_emulation=disabled --werror --auto-features=enabled
           ninja -C build-gcc/
+          ls
+          pwd
           
       - name: Build the rest
         run: |
