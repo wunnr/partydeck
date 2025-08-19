@@ -30,6 +30,9 @@ jobs:
           ninja -C build-gcc/
           ls
           pwd
+          cd src
+          ls
+          pwd
           
       - name: Build the rest
         run: |
