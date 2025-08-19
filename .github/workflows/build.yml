@@ -1,59 +1,31 @@
-name: Build
-
+name: CI
 on:
-  workflow_dispatch:
+  push:
+    branches: [ master ]
   pull_request:
-
+    branches: [ master ]
+  workflow_dispatch:
 jobs:
-  build-and-run:
+  build:
     runs-on: ubuntu-latest
-
+    container: archlinux:base-devel
     steps:
-      - name: Check out source code
-        uses: actions/checkout@v4
+      - name: Prepare
+        run: |
+          pacman-key --init
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm git meson rust cargo clang glslang libcap wlroots0.18 \
+            sdl2 vulkan-headers libx11 libxmu libxcomposite libxrender libxres \
+            libxtst libxkbcommon libdrm libinput wayland-protocols benchmark \
+            xorg-xwayland pipewire cmake \
+            libavif libheif aom rav1e libdecor libxdamage \
+            luajit
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential meson ninja-build cmake pkg-config \
-            gcc g++ clang \
-            rustc cargo \
-            libx11-dev libx11-xcb-dev libxext-dev libxres-dev \
-            libxcb1-dev libxcb-composite0-dev libxcb-xfixes0-dev \
-            libxcb-randr0-dev libxcb-shape0-dev libxcb-util-dev \
-            libxrender-dev libxtst-dev libxdamage-dev libxcomposite-dev \
-            libxcursor-dev libxxf86vm-dev libxmu-dev \
-            libxkbcommon-dev \
-            libwayland-dev libwayland-server0 wayland-protocols \
-            libvulkan-dev \
-            libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
-            libpipewire-0.3-dev \
-            libpixman-1-dev libudev-dev libsdl2-dev \
-            libseat-dev \
-            libinput-dev \
-            libxcb-ewmh-dev libxcb-icccm4-dev libxcb-res0-dev \
-            xserver-xorg-dev \
-            libsystemd-dev \
-            libdecor-0-dev \
-            glslang-dev glslang-tools \
-            libcap-dev \
-            libavif-dev libheif-dev libaom-dev librav1e-dev \
-            luajit
-
       - name: Build with gcc
         run: |
           cd deps/gamescope
           export CC=gcc CXX=g++
           meson build-gcc/ -Dinput_emulation=disabled --werror --auto-features=enabled
           ninja -C build-gcc/
-
-      - name: Build the rest
-        run: |
-          cd ..
-          pwd
-          ls
-          chmod +x build.sh
-          ./build.sh
