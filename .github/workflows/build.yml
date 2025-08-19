@@ -21,6 +21,8 @@ jobs:
 
       - name: Configure Meson build
         run: |
+          ls
+          pwd
           meson setup build/
 
       - name: Build with Ninja
