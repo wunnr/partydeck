@@ -12,14 +12,14 @@ jobs:
       - name: Check out source code
         uses: actions/checkout@v4
         with:
-          submodules: 'recursive'    # ensures `git submodule update --init` runs
+          submodules: recursive
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            build-essential meson cmake make gcc \
-            pkg-config clang ninja-build \
+            build-essential meson ninja-build cmake pkg-config \
+            gcc g++ clang \
             rustc cargo \
             libx11-dev libx11-xcb-dev libxext-dev libxres-dev \
             libxcb1-dev libxcb-composite0-dev libxcb-xfixes0-dev \
@@ -27,28 +27,32 @@ jobs:
             libxrender-dev libxtst-dev libxdamage-dev libxcomposite-dev \
             libxcursor-dev libxxf86vm-dev libxmu-dev \
             libxkbcommon-dev \
-            libwayland-client0 libwayland-dev wayland-protocols \
-            libwayland-egl1-mesa libwayland-bin \
-            libvulkan-dev vulkan-utility-libraries-dev \
+            libwayland-dev wayland-protocols \
+            libvulkan-dev \
             libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
             libpipewire-0.3-dev \
             libpixman-1-dev libudev-dev \
-            libseat1 libseat-dev \
+            libseat-dev \
             libinput-dev \
             libxcb-ewmh-dev libxcb-icccm4-dev libxcb-res0-dev \
-            xserver-xorg-dev xorg-dev \
+            xserver-xorg-dev \
             libsystemd-dev \
-            libdisplay-info-bin libeis1 \
             libdecor-0-dev \
             glslang-dev glslang-tools \
-            libcap-dev
+            libcap-dev \
+            libavif-dev libheif-dev libaom-dev librav1e-dev \
+            luajit
 
-      - name: Build Gamescope
+      - name: Build with gcc
         run: |
-          ls
-          pwd
           cd deps/gamescope
-          ls
-          pwd
-          meson setup build/
-          ninja -C build/
+          export CC=gcc CXX=g++
+          meson build-gcc/ -Dinput_emulation=disabled --werror --auto-features=enabled
+          ninja -C build-gcc/
+
+      - name: Build with gcc (no VR)
+        run: |
+          cd deps/gamescope
+          export CC=gcc CXX=g++
+          meson build-gcc-novr/ -Dinput_emulation=disabled -Denable_openvr_support=false --werror --auto-features=enabled
+          ninja -C build-gcc-novr/
