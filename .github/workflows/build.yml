@@ -43,3 +43,11 @@ jobs:
           pwd
           chmod +x build.sh
           ./build.sh
+          
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-binaries
+          path: |
+            build/
+            deps/gamescope/build-gcc/src/gamescope
