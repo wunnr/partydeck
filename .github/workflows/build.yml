@@ -33,6 +33,9 @@ jobs:
           cd src
           ls
           pwd
+          cd build-gcc
+          ls
+          pwd
           
       - name: Build the rest
         run: |
