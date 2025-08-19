@@ -18,18 +18,30 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            meson ninja-build cmake pkg-config \
-            build-essential clang \
+            build-essential meson cmake make gcc \
+            pkg-config clang ninja-build \
             rustc cargo \
             libx11-dev libx11-xcb-dev libxext-dev libxres-dev \
             libxcb1-dev libxcb-composite0-dev libxcb-xfixes0-dev \
             libxcb-randr0-dev libxcb-shape0-dev libxcb-util-dev \
-            libxrender-dev libxtst-dev libxdamage-dev \
-            libwayland-dev libwayland-egl1-mesa libwayland-bin wayland-protocols \
-            libpipewire-0.3-dev \
+            libxrender-dev libxtst-dev libxdamage-dev libxcomposite-dev \
+            libxcursor-dev libxxf86vm-dev libxmu-dev \
+            libxkbcommon-dev \
+            libwayland-client0 libwayland-dev wayland-protocols \
+            libwayland-egl1-mesa libwayland-bin \
+            libvulkan-dev vulkan-validationlayers-dev \
             libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
-            libvulkan-dev vulkan-utility-libraries-dev \
-            libcap-dev libsystemd-dev xcomposite
+            libpipewire-0.3-dev \
+            libpixman-1-dev libudev-dev \
+            libseat1 libseat-dev \
+            libinput-dev \
+            libxcb-ewmh-dev libxcb-icccm4-dev libxcb-res0-dev \
+            xserver-xorg-dev xorg-dev \
+            libsystemd-dev \
+            libdisplay-info-bin libeis1 \
+            libdecor-0-dev \
+            glslang-dev glslang-tools \
+            libcap-dev
 
       - name: Build Gamescope
         run: |
