@@ -31,7 +31,7 @@ jobs:
             libvulkan-dev \
             libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
             libpipewire-0.3-dev \
-            libpixman-1-dev libudev-dev \
+            libpixman-1-dev libudev-dev sdl2 \
             libseat-dev \
             libinput-dev \
             libxcb-ewmh-dev libxcb-icccm4-dev libxcb-res0-dev \
@@ -50,9 +50,16 @@ jobs:
           meson build-gcc/ -Dinput_emulation=disabled --werror --auto-features=enabled
           ninja -C build-gcc/
 
-      - name: Build with gcc (no VR)
+      - name: Build gamescope
         run: |
           cd deps/gamescope
+          export CC=gcc CXX=g++
+          meson build-gcc-novr/ -Dinput_emulation=disabled -Denable_openvr_support=false --werror --auto-features=enabled
+          ninja -C build-gcc-novr/
+
+      - name: Build the rest
+        run: |
+          cd ..
           export CC=gcc CXX=g++
           meson build-gcc-novr/ -Dinput_emulation=disabled -Denable_openvr_support=false --werror --auto-features=enabled
           ninja -C build-gcc-novr/
