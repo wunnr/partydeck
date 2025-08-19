@@ -50,16 +50,10 @@ jobs:
           meson build-gcc/ -Dinput_emulation=disabled --werror --auto-features=enabled
           ninja -C build-gcc/
 
-      - name: Build gamescope
-        run: |
-          cd deps/gamescope
-          export CC=gcc CXX=g++
-          meson build-gcc-novr/ -Dinput_emulation=disabled -Denable_openvr_support=false --werror --auto-features=enabled
-          ninja -C build-gcc-novr/
-
       - name: Build the rest
         run: |
           cd ..
-          export CC=gcc CXX=g++
-          meson build-gcc-novr/ -Dinput_emulation=disabled -Denable_openvr_support=false --werror --auto-features=enabled
-          ninja -C build-gcc-novr/
+          pwd
+          ls
+          chmod +x build.sh
+          ./build.sh
