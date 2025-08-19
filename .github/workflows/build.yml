@@ -31,7 +31,7 @@ jobs:
             libvulkan-dev \
             libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
             libpipewire-0.3-dev \
-            libpixman-1-dev libudev-dev sdl2 \
+            libpixman-1-dev libudev-dev libsdl2-dev \
             libseat-dev \
             libinput-dev \
             libxcb-ewmh-dev libxcb-icccm4-dev libxcb-res0-dev \
