@@ -28,7 +28,7 @@ jobs:
             libwayland-dev libwayland-egl1-mesa libwayland-bin wayland-protocols \
             libpipewire-0.3-dev \
             libdrm-dev libgbm-dev libegl1-mesa-dev libgles2-mesa-dev \
-            libvulkan-dev vulkan-validationlayers-dev \
+            libvulkan-dev vulkan-utility-libraries-dev \
             libcap-dev libsystemd-dev
 
       - name: Build Gamescope
