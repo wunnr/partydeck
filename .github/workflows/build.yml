@@ -1,0 +1,31 @@
+name: Build & Run PartyDeck
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'    # ensures `git submodule update --init` runs
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build gamescope
+
+      - name: Configure Meson build
+        run: |
+          meson setup build/
+
+      - name: Build with Ninja
+        run: |
+          ninja -C build/
