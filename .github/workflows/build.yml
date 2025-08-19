@@ -1,4 +1,4 @@
-name: Build & Run PartyDeck
+name: Build
 
 on:
   workflow_dispatch:
@@ -19,12 +19,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y meson ninja-build
 
-      - name: Configure Meson build
+      - name: Gamescope
         run: |
           ls
           pwd
+          cd deps/gamescope
+          ls
+          pwd
           meson setup build/
-
-      - name: Build with Ninja
-        run: |
           ninja -C build/
