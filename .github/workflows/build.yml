@@ -29,3 +29,11 @@ jobs:
           export CC=gcc CXX=g++
           meson build-gcc/ -Dinput_emulation=disabled --werror --auto-features=enabled
           ninja -C build-gcc/
+          
+      - name: Build the rest
+        run: |
+          cd ..
+          ls
+          pwd
+          chmod +x build.sh
+          ./build.sh
