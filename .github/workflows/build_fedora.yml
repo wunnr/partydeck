@@ -20,7 +20,7 @@ jobs:
             wayland-protocols-devel \
             xorg-x11-server-Xwayland pipewire-devel cmake \
             libavif-devel libheif-devel rav1e-devel libdecor-devel libXxf86vm-devel hwdata-devel \
-            libXdamage-devel xorg-x11-server-Xwayland-devel luajit-devel gcc gcc-c++ make \
+            libXdamage-devel xorg-x11-server-Xwayland-devel luajit-devel gcc gcc-c++ make google-benchmark-devel \
 
       - uses: actions/checkout@v4
         with:
