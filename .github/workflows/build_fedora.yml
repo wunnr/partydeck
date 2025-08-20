@@ -1,4 +1,4 @@
-name: CI
+name: CI (Fedora)
 on:
   push:
   pull_request:
