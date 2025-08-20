@@ -14,7 +14,7 @@ jobs:
           dnf -y upgrade
           dnf -y install \
             git meson ninja-build rust cargo clang glslang libcap-devel \
-            wlroots-devel SDL2-devel vulkan-headers libX11 libX11-devel libX11-common libXcursor-devel libXmu-devel \
+            wlroots-devel SDL2-devel vulkan-headers libX11 libX11-devel libX11-common libxcb libxcb-devel libXcursor-devel libXmu-devel \
             libXcomposite-devel libXrender-devel libXres-devel \
             libXtst-devel libxkbcommon-devel libdrm-devel libinput-devel \
             wayland-protocols-devel \
