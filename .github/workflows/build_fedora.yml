@@ -1,0 +1,54 @@
+name: CI
+on:
+  push:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - name: Prepare
+        run: |
+          dnf -y upgrade
+          dnf -y install \
+            git meson ninja-build rust cargo clang glslang libcap-devel \
+            wlroots-devel SDL2-devel vulkan-headers libX11-devel libXmu-devel \
+            libXcomposite-devel libXrender-devel libXres-devel \
+            libXtst-devel libxkbcommon-devel libdrm-devel libinput-devel \
+            wayland-protocols-devel benchmark-devel \
+            xorg-x11-server-Xwayland pipewire-devel cmake \
+            libavif-devel libheif-devel aom-devel rav1e-devel libdecor-devel \
+            libXdamage-devel luajit-devel gcc gcc-c++ make
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build with gcc
+        run: |
+          cd deps/gamescope
+          export CC=gcc CXX=g++
+          meson build-gcc/ -Dinput_emulation=disabled --werror --auto-features=enabled
+          ninja -C build-gcc/
+          ls
+          pwd
+          cd build-gcc/src
+          ls
+          pwd
+          
+      - name: Build the rest
+        run: |
+          ls
+          pwd
+          chmod +x build.sh
+          ./build.sh
+          
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-binaries
+          path: |
+            build/
+            deps/gamescope/build-gcc/src/gamescope
