@@ -14,15 +14,13 @@ jobs:
           dnf -y upgrade
           dnf -y install \
             git meson ninja-build rust cargo clang glslang libcap-devel \
-            wlroots-devel SDL2-devel vulkan-headers libX11-devel libXcursor-devel libXmu-devel \
+            wlroots-devel SDL2-devel vulkan-headers libX11 libX11-devel libX11-common libXcursor-devel libXmu-devel \
             libXcomposite-devel libXrender-devel libXres-devel \
             libXtst-devel libxkbcommon-devel libdrm-devel libinput-devel \
             wayland-protocols-devel \
             xorg-x11-server-Xwayland pipewire-devel cmake \
             libavif-devel libheif-devel rav1e-devel libdecor-devel libXxf86vm-devel hwdata-devel \
             libXdamage-devel xorg-x11-server-Xwayland-devel luajit-devel gcc gcc-c++ make \
-            libx11-xcb-devel \
-
 
       - uses: actions/checkout@v4
         with:
