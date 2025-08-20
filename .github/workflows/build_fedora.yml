@@ -19,7 +19,7 @@ jobs:
             libXtst-devel libxkbcommon-devel libdrm-devel libinput-devel \
             wayland-protocols-devel \
             xorg-x11-server-Xwayland pipewire-devel cmake \
-            libavif-devel libheif-devel rav1e-devel libdecor-devel \
+            libavif-devel libheif-devel rav1e-devel libdecor-devel libXxf86vm-devel \
             libXdamage-devel luajit-devel gcc gcc-c++ make
 
       - uses: actions/checkout@v4
