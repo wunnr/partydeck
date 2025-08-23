@@ -25,6 +25,8 @@ pub struct PartyConfig {
     #[serde(default)]
     pub vertical_two_player: bool,
     pub pad_filter_type: PadFilterType,
+    #[serde(default)]
+    pub allow_multiple_instances_on_same_device: bool,
 }
 
 impl Default for PartyConfig {
@@ -39,6 +41,7 @@ impl Default for PartyConfig {
             proton_separate_pfxs: false,
             vertical_two_player: false,
             pad_filter_type: PadFilterType::NoSteamInput,
+            allow_multiple_instances_on_same_device: false,
         }
     }
 }
