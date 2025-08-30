@@ -263,6 +263,8 @@ pub fn launch_cmd(
             } else {
                 if h.linux_unique_localshare {
                     binds.push_str(&format!("--bind \"{path_save}/_share\" \"{localshare}\" "));
+                    binds.push_str(&format!("--bind {party} {party} "));
+                    binds.push_str(&format!("--bind {steam} {steam} "));
                 }
                 if h.linux_unique_config {
                     binds.push_str(&format!(
