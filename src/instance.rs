@@ -7,6 +7,7 @@ pub struct Instance {
     pub devices: Vec<usize>,
     pub profname: String,
     pub profselection: usize,
+    pub monitor: usize,
     pub width: u32,
     pub height: u32,
 }

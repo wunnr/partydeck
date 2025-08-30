@@ -5,6 +5,7 @@ use crate::game::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::launch::launch_game;
+use crate::monitor::Monitor;
 use crate::util::*;
 
 use std::path::PathBuf;
@@ -23,6 +24,7 @@ pub struct LightPartyApp {
     pub cur_page: MenuPage,
     pub infotext: String,
 
+    pub monitors: Vec<Monitor>,
     pub input_devices: Vec<InputDevice>,
     pub instances: Vec<Instance>,
     pub instance_add_dev: Option<usize>,
@@ -35,7 +37,7 @@ pub struct LightPartyApp {
 }
 
 impl LightPartyApp {
-    pub fn new_lightapp(exec: String, execargs: String) -> Self {
+    pub fn new(exec: String, execargs: String, monitors: Vec<Monitor>) -> Self {
         let options = load_cfg();
         let input_devices = scan_input_devices(&options.pad_filter_type);
         // placeholder, user should define this
@@ -43,6 +45,7 @@ impl LightPartyApp {
             options,
             cur_page: MenuPage::Instances,
             infotext: String::new(),
+            monitors,
             input_devices,
             instances: Vec::new(),
             instance_add_dev: None,
@@ -163,13 +166,15 @@ impl LightPartyApp {
                         continue;
                     }
                     if !self.options.allow_multiple_instances_on_same_device
-                        && self.is_device_in_any_instance(i) {
+                        && self.is_device_in_any_instance(i)
+                    {
                         continue;
                     }
                     // Prevent same keyboard/mouse device in multiple instances due to current custom gamescope limitations
                     // TODO: Remove this when custom gamescope supports the same keyboard/mouse device for multiple instances
                     if self.input_devices[i].device_type() != DeviceType::Gamepad
-                        && self.is_device_in_any_instance(i) {
+                        && self.is_device_in_any_instance(i)
+                    {
                         continue;
                     }
 
@@ -179,14 +184,16 @@ impl LightPartyApp {
                             if !self.is_device_in_instance(inst, i) {
                                 self.instance_add_dev = None;
                                 self.instances[inst].devices.push(i);
+                            } else {
+                                continue;
                             }
-                            else { continue; }
                         }
                         None => {
                             self.instances.push(Instance {
                                 devices: vec![i],
                                 profname: String::new(),
                                 profselection: 0,
+                                monitor: 0,
                                 width: 0,
                                 height: 0,
                             });
@@ -266,7 +273,8 @@ impl LightPartyApp {
     }
 
     pub fn remove_device_instance(&mut self, instance_index: usize, dev: usize) {
-        let device_index = self.instances[instance_index].devices
+        let device_index = self.instances[instance_index]
+            .devices
             .iter()
             .position(|device| device == &dev);
 
@@ -535,7 +543,7 @@ impl LightPartyApp {
 
         ui.separator();
 
-        let mut devices_to_remove: Vec<(usize,usize)> = Vec::new();
+        let mut devices_to_remove: Vec<(usize, usize)> = Vec::new();
         for (i, instance) in &mut self.instances.iter_mut().enumerate() {
             ui.horizontal(|ui| {
                 ui.label(format!("Instance {}", i + 1));

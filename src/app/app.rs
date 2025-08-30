@@ -5,6 +5,7 @@ use crate::game::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::launch::launch_game;
+use crate::monitor::Monitor;
 use crate::util::*;
 
 use eframe::egui::{self, Key};
@@ -31,6 +32,7 @@ pub struct PartyApp {
     pub settings_page: SettingsPage,
     pub infotext: String,
 
+    pub monitors: Vec<Monitor>,
     pub input_devices: Vec<InputDevice>,
     pub instances: Vec<Instance>,
     pub instance_add_dev: Option<usize>,
@@ -50,8 +52,8 @@ macro_rules! cur_game {
     };
 }
 
-impl Default for PartyApp {
-    fn default() -> Self {
+impl PartyApp {
+    pub fn new(monitors: Vec<Monitor>) -> Self {
         let options = load_cfg();
         let input_devices = scan_input_devices(&options.pad_filter_type);
         Self {
@@ -60,6 +62,7 @@ impl Default for PartyApp {
             cur_page: MenuPage::Home,
             settings_page: SettingsPage::General,
             infotext: String::new(),
+            monitors,
             input_devices,
             instances: Vec::new(),
             instance_add_dev: None,
@@ -237,14 +240,16 @@ impl PartyApp {
                     {
                         continue;
                     }
-                    if !self.options.allow_multiple_instances_on_same_device 
-                        && self.is_device_in_any_instance(i) {
+                    if !self.options.allow_multiple_instances_on_same_device
+                        && self.is_device_in_any_instance(i)
+                    {
                         continue;
                     }
                     // Prevent same keyboard/mouse device in multiple instances due to current custom gamescope limitations
                     // TODO: Remove this when custom gamescope supports the same keyboard/mouse device for multiple instances
                     if self.input_devices[i].device_type() != DeviceType::Gamepad
-                        && self.is_device_in_any_instance(i) {
+                        && self.is_device_in_any_instance(i)
+                    {
                         continue;
                     }
 
@@ -254,14 +259,16 @@ impl PartyApp {
                             if !self.is_device_in_instance(inst, i) {
                                 self.instance_add_dev = None;
                                 self.instances[inst].devices.push(i);
+                            } else {
+                                continue;
                             }
-                            else { continue; }
                         }
                         None => {
                             self.instances.push(Instance {
                                 devices: vec![i],
                                 profname: String::new(),
                                 profselection: 0,
+                                monitor: 0,
                                 width: 0,
                                 height: 0,
                             });
@@ -321,7 +328,7 @@ impl PartyApp {
         }
         None
     }
-    
+
     fn find_device_in_instance_from_end(&mut self, dev: usize) -> Option<(usize, usize)> {
         for (i, instance) in self.instances.iter().enumerate().rev() {
             for (d, device) in instance.devices.iter().enumerate() {
@@ -341,9 +348,10 @@ impl PartyApp {
             }
         }
     }
-    
+
     pub fn remove_device_instance(&mut self, instance_index: usize, dev: usize) {
-        let device_index = self.instances[instance_index].devices
+        let device_index = self.instances[instance_index]
+            .devices
             .iter()
             .position(|device| device == &dev);
 

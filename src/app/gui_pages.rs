@@ -207,7 +207,7 @@ impl PartyApp {
 
         ui.separator();
 
-        let mut devices_to_remove: Vec<(usize,usize)> = Vec::new();
+        let mut devices_to_remove: Vec<(usize, usize)> = Vec::new();
         for (i, instance) in &mut self.instances.iter_mut().enumerate() {
             ui.horizontal(|ui| {
                 ui.label(format!("Instance {}", i + 1));
@@ -221,6 +221,14 @@ impl PartyApp {
                         |i| self.profiles[i].clone(),
                     );
                 }
+
+                ui.label("🖵");
+                egui::ComboBox::from_id_salt(format!("monitors{i}")).show_index(
+                    ui,
+                    &mut instance.monitor,
+                    self.monitors.len(),
+                    |i| self.monitors[i].name(),
+                );
 
                 if self.instance_add_dev == None {
                     if ui.button("➕ Invite New Device").clicked() {
@@ -348,7 +356,7 @@ impl PartyApp {
         if proton_separate_pfxs_check.hovered() {
             self.infotext = "Runs each instance in its own Proton prefix. If unsure, leave this unchecked. This option will take up more space on the disk, but may also help with certain Proton-related issues such as only one instance of a game starting.".to_string();
         }
-        
+
         let allow_multiple_instances_on_same_device_check = ui.checkbox(
             &mut self.options.allow_multiple_instances_on_same_device,
             "Allow multiple instances on the same device",

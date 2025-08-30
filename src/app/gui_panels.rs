@@ -169,11 +169,11 @@ impl PartyApp {
                 };
 
                 let popup_id = ui.make_persistent_id(format!("gamectx{}", i));
-                egui::popup::popup_below_widget(
+                egui::old_popup::popup_below_widget(
                     ui,
                     popup_id,
                     &btn,
-                    egui::popup::PopupCloseBehavior::CloseOnClick,
+                    egui::PopupCloseBehavior::CloseOnClick,
                     |ui| {
                         if ui.button("Remove").clicked() {
                             if yesno(

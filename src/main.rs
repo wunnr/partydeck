@@ -4,12 +4,21 @@ mod handler;
 mod input;
 mod instance;
 mod launch;
+mod monitor;
 mod paths;
 mod util;
 
 use crate::app::*;
+use crate::monitor::*;
 use crate::paths::PATH_PARTY;
 use crate::util::*;
+
+use eframe::UserEvent;
+use std::time::Duration;
+use winit::application::ApplicationHandler;
+use winit::event_loop::{ControlFlow, EventLoop};
+use winit::platform::pump_events::EventLoopExtPumpEvents;
+use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 
 fn main() -> eframe::Result {
     let args: Vec<String> = std::env::args().collect();
@@ -109,9 +118,24 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
+    let mut eventloop = EventLoop::<UserEvent>::with_user_event().build()?;
+    eventloop.set_control_flow(ControlFlow::Poll);
+
+    let monitors = get_monitors_sdl();
+
+    println!("Monitors detected: {}", monitors.len());
+    for monitor in &monitors {
+        println!(
+            "Monitor {}: {}x{}",
+            monitor.name(),
+            monitor.width(),
+            monitor.height()
+        );
+    }
+
     println!("\n[PARTYDECK] starting...\n");
 
-    eframe::run_native(
+    let mut party_winit_app = eframe::create_native(
         "PartyDeck",
         options,
         Box::new(|cc| {
@@ -119,11 +143,18 @@ fn main() -> eframe::Result {
             egui_extras::install_image_loaders(&cc.egui_ctx);
             cc.egui_ctx.set_zoom_factor(scale);
             Ok(match light {
-                true => Box::<LightPartyApp>::new(LightPartyApp::new_lightapp(exec, execargs)),
-                false => Box::<PartyApp>::default(),
+                true => {
+                    Box::<LightPartyApp>::new(LightPartyApp::new(exec, execargs, monitors.clone()))
+                }
+                false => Box::<PartyApp>::new(PartyApp::new(monitors.clone())),
             })
         }),
-    )
+        &eventloop,
+    );
+
+    eventloop.run_app_on_demand(&mut party_winit_app)?;
+
+    Ok(())
 }
 
 static USAGE_TEXT: &str = r#"
