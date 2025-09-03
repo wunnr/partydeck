@@ -288,7 +288,15 @@ impl LightPartyApp {
     }
 
     pub fn prepare_game_launch(&mut self) {
-        set_instance_resolutions(&mut self.instances, &self.options);
+        if self.options.gamescope_sdl_backend {
+            set_instance_resolutions_multimonitor(
+                &mut self.instances,
+                &self.monitors,
+                &self.options,
+            );
+        } else {
+            set_instance_resolutions(&mut self.instances, &self.monitors[0], &self.options);
+        }
 
         let game = self.game.to_owned();
         let instances = self.instances.clone();

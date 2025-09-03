@@ -365,7 +365,15 @@ impl PartyApp {
     }
 
     pub fn prepare_game_launch(&mut self) {
-        set_instance_resolutions(&mut self.instances, &self.options);
+        if self.options.gamescope_sdl_backend {
+            set_instance_resolutions_multimonitor(
+                &mut self.instances,
+                &self.monitors,
+                &self.options,
+            );
+        } else {
+            set_instance_resolutions(&mut self.instances, &self.monitors[0], &self.options);
+        }
         set_instance_names(&mut self.instances, &self.profiles);
 
         let game = cur_game!(self).to_owned();
