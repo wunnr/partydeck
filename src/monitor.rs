@@ -31,8 +31,7 @@ impl Monitor {
     }
 }
 
-// Monitor detection. Each method has its pros and cons
-
+// Using sdl seems to be the most reliable way to get monitor info in a way that lines up with what gamescope expects, since its --display-index option uses sdl.
 pub fn get_monitors_sdl() -> Vec<Monitor> {
     let video = sdl2::init().unwrap().video().unwrap();
     println!("driver: {}", video.current_video_driver());
@@ -47,28 +46,4 @@ pub fn get_monitors_sdl() -> Vec<Monitor> {
         });
     }
     monitors
-}
-
-pub fn get_monitors_winit(eventloop: &mut EventLoop<UserEvent>) -> Vec<Monitor> {
-    let mut mons = Vec::<Monitor>::new();
-
-    eventloop
-        .run_on_demand(|_, event_loop| {
-            if !mons.is_empty() {
-                return;
-            }
-            let mut monitors = Vec::new();
-            for monitor in event_loop.available_monitors() {
-                monitors.push(Monitor::new(
-                    monitor.name().unwrap(),
-                    monitor.size().width,
-                    monitor.size().height,
-                ));
-            }
-
-            mons = monitors;
-            event_loop.exit();
-        })
-        .unwrap();
-    mons
 }
