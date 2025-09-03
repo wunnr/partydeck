@@ -300,10 +300,11 @@ pub fn launch_cmd(
         if i < instances.len() - 1 {
             // Proton games need a ~5 second buffer in-between launches
             // TODO: investigate why this is
-            match win {
-                true => cmd.push_str("& sleep 6; "),
-                false => cmd.push_str("& sleep 0.01; "),
-            }
+            let pause_duration = match game {
+                HandlerRef(h) => h.pause_between_starts.unwrap_or(if win { 6.0 } else { 0.01 }),
+                ExecRef(_) => if win { 6.0 } else { 0.01 },
+            };
+            cmd.push_str(&format!("& sleep {pause_duration}; "));
         }
     }
 
