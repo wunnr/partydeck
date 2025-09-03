@@ -177,21 +177,20 @@ pub fn launch_cmd(
             cmd.push_str(&format!("WINEPREFIX={pfx} "));
         }
 
-        let (gsc_width, gsc_height) = (instance.width, instance.height);
-
-        let gsc_sdl = match cfg.gamescope_sdl_backend {
-            true => "--backend=sdl",
-            false => "",
-        };
-
         let gamescope = match cfg.kbm_support {
             true => &format!("{}", BIN_GSC_KBM.to_string_lossy()),
             false => "gamescope",
         };
 
         cmd.push_str(&format!(
-            "{gamescope} -W {gsc_width} -H {gsc_height} {gsc_sdl} "
+            "{gamescope} -W {} -H {} ",
+            instance.width, instance.height
         ));
+
+        if cfg.gamescope_sdl_backend {
+            cmd.push_str("--backend=sdl ");
+            cmd.push_str(&format!("--display-index {} ", instance.monitor));
+        }
 
         if cfg.kbm_support {
             let mut instance_has_keyboard = false;
@@ -221,6 +220,8 @@ pub fn launch_cmd(
                 cmd.push_str(&format!("--libinput-hold-dev {} ", kbms));
             }
         }
+
+        if cfg.gamescope_sdl_backend {}
 
         cmd.push_str(&format!("-- "));
 
@@ -284,9 +285,9 @@ pub fn launch_cmd(
                 .map(|arg| match arg.as_str() {
                     "$GAMEDIR" => format!(" \"{gamedir}\""),
                     "$PROFILE" => format!(" \"{}\"", instance.profname.as_str()),
-                    "$WIDTH" => format!(" {gsc_width}"),
-                    "$HEIGHT" => format!(" {gsc_height}"),
-                    "$WIDTHXHEIGHT" => format!(" \"{gsc_width}x{gsc_height}\""),
+                    "$WIDTH" => format!(" {}", instance.width),
+                    "$HEIGHT" => format!(" {}", instance.height),
+                    "$WIDTHXHEIGHT" => format!(" \"{}x{}\"", instance.width, instance.height),
                     _ => format!(" {arg}"),
                 })
                 .collect::<String>(),
