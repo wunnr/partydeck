@@ -14,13 +14,25 @@ use crate::paths::PATH_PARTY;
 use crate::util::*;
 
 use eframe::UserEvent;
-use std::time::Duration;
-use winit::application::ApplicationHandler;
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::platform::pump_events::EventLoopExtPumpEvents;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 
 fn main() -> eframe::Result {
+    unsafe {
+        std::env::set_var("SDL_VIDEODRIVER", "x11");
+    }
+
+    let monitors = get_monitors_sdl();
+
+    println!("Monitors detected: {}", monitors.len());
+    for monitor in &monitors {
+        println!(
+            "Monitor {}: {}x{}",
+            monitor.name(),
+            monitor.width(),
+            monitor.height()
+        );
+    }
     let args: Vec<String> = std::env::args().collect();
 
     if std::env::args().any(|arg| arg == "--help") {
@@ -31,7 +43,7 @@ fn main() -> eframe::Result {
     if std::env::args().any(|arg| arg == "--kwin") {
         let args: Vec<String> = std::env::args().filter(|arg| arg != "--kwin").collect();
 
-        let (w, h) = get_screen_resolution();
+        let (w, h) = (monitors[0].width(), monitors[0].height());
         let mut cmd = std::process::Command::new("kwin_wayland");
 
         cmd.arg("--xwayland");
@@ -92,7 +104,7 @@ fn main() -> eframe::Result {
         std::fs::remove_dir_all(PATH_PARTY.join("tmp")).unwrap();
     }
 
-    let (_, scrheight) = get_screen_resolution();
+    let scrheight = monitors[0].height();
 
     let scale = match fullscreen {
         true => scrheight as f32 / 560.0,
@@ -120,18 +132,6 @@ fn main() -> eframe::Result {
 
     let mut eventloop = EventLoop::<UserEvent>::with_user_event().build()?;
     eventloop.set_control_flow(ControlFlow::Poll);
-
-    let monitors = get_monitors_sdl();
-
-    println!("Monitors detected: {}", monitors.len());
-    for monitor in &monitors {
-        println!(
-            "Monitor {}: {}x{}",
-            monitor.name(),
-            monitor.width(),
-            monitor.height()
-        );
-    }
 
     println!("\n[PARTYDECK] starting...\n");
 
