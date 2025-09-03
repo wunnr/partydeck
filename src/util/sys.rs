@@ -16,23 +16,6 @@ pub fn yesno(title: &str, contents: &str) -> bool {
     false
 }
 
-pub fn get_screen_resolution() -> (u32, u32) {
-    if let Ok(conn) = x11rb::connect(None) {
-        let screen = &conn.0.setup().roots[0];
-        println!(
-            "Got screen resolution: {}x{}",
-            screen.width_in_pixels, screen.height_in_pixels
-        );
-        return (
-            screen.width_in_pixels as u32,
-            screen.height_in_pixels as u32,
-        );
-    }
-    // Fallback to a common resolution if detection fails
-    println!("Failed to detect screen resolution, using fallback 1920x1080");
-    (1920, 1080)
-}
-
 // Sends the splitscreen script to the active KWin session through DBus
 pub fn kwin_dbus_start_script(file: PathBuf) -> Result<(), Box<dyn Error>> {
     println!("Loading script {}...", file.display());
