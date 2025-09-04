@@ -26,7 +26,7 @@ pub fn launch_game(
     }
 
     let cmd = launch_cmd(game, input_devices, instances, cfg)?;
-    println!("\nCOMMAND:\n{}\n", cmd);
+    println!("\n[partydeck] LAUNCH COMMAND:\n{}\n", cmd);
 
     if cfg.enable_kwin_script {
         let script = if instances.len() == 2 && cfg.vertical_two_player {
@@ -221,8 +221,6 @@ pub fn launch_cmd(
             }
         }
 
-        if cfg.gamescope_sdl_backend {}
-
         cmd.push_str(&format!("-- "));
 
         cmd.push_str(&format!(
@@ -303,7 +301,7 @@ pub fn launch_cmd(
             // TODO: investigate why this is
             match win {
                 true => cmd.push_str("& sleep 6; "),
-                false => cmd.push_str("& sleep 0.01; "),
+                false => cmd.push_str("& sleep 0.5; "),
             }
         }
     }

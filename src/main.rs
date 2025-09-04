@@ -24,10 +24,10 @@ fn main() -> eframe::Result {
 
     let monitors = get_monitors_sdl();
 
-    println!("Monitors detected: {}", monitors.len());
+    println!("[partydeck] Monitors detected:");
     for monitor in &monitors {
         println!(
-            "Monitor {}: {}x{}",
+            "{} ({}x{})",
             monitor.name(),
             monitor.width(),
             monitor.height()
@@ -59,12 +59,12 @@ fn main() -> eframe::Result {
             .join(" ");
         cmd.arg(args_string);
 
-        println!("[PARTYDECK] Launching kwin session: {:?}", cmd);
+        println!("[partydeck] Launching kwin session: {:?}", cmd);
 
         match cmd.spawn() {
             Ok(_) => std::process::exit(0),
             Err(e) => {
-                eprintln!("Failed to start kwin_wayland: {}", e);
+                eprintln!("[partydeck] Failed to start kwin_wayland: {}", e);
                 std::process::exit(1);
             }
         }
@@ -133,7 +133,7 @@ fn main() -> eframe::Result {
     let mut eventloop = EventLoop::<UserEvent>::with_user_event().build()?;
     eventloop.set_control_flow(ControlFlow::Poll);
 
-    println!("\n[PARTYDECK] starting...\n");
+    println!("\n[partydeck] starting...\n");
 
     let mut party_winit_app = eframe::create_native(
         "PartyDeck",

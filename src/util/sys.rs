@@ -1,7 +1,6 @@
 use dialog::{Choice, DialogBox};
 use std::error::Error;
 use std::path::PathBuf;
-use x11rb::connection::Connection;
 
 pub fn msg(title: &str, contents: &str) {
     let _ = dialog::Message::new(contents).title(title).show();
@@ -18,9 +17,12 @@ pub fn yesno(title: &str, contents: &str) -> bool {
 
 // Sends the splitscreen script to the active KWin session through DBus
 pub fn kwin_dbus_start_script(file: PathBuf) -> Result<(), Box<dyn Error>> {
-    println!("Loading script {}...", file.display());
+    println!(
+        "[partydeck] util::kwin_dbus_start_script - Loading script {}...",
+        file.display()
+    );
     if !file.exists() {
-        return Err("Script file doesn't exist!".into());
+        return Err("[partydeck] util::kwin_dbus_start_script - Script file doesn't exist!".into());
     }
 
     let conn = zbus::blocking::Connection::session()?;
@@ -32,15 +34,15 @@ pub fn kwin_dbus_start_script(file: PathBuf) -> Result<(), Box<dyn Error>> {
     )?;
 
     let _: i32 = proxy.call("loadScript", &(file.to_string_lossy(), "splitscreen"))?;
-    println!("Script loaded. Starting...");
+    println!("[partydeck] util::kwin_dbus_start_script - Script loaded. Starting...");
     let _: () = proxy.call("start", &())?;
 
-    println!("KWin script started.");
+    println!("[partydeck] util::kwin_dbus_start_script - KWin script started.");
     Ok(())
 }
 
 pub fn kwin_dbus_unload_script() -> Result<(), Box<dyn Error>> {
-    println!("Unloading splitscreen script...");
+    println!("[partydeck] util::kwin_dbus_unload_script - Unloading splitscreen script...");
     let conn = zbus::blocking::Connection::session()?;
     let proxy = zbus::blocking::Proxy::new(
         &conn,
@@ -51,6 +53,6 @@ pub fn kwin_dbus_unload_script() -> Result<(), Box<dyn Error>> {
 
     let _: bool = proxy.call("unloadScript", &("splitscreen"))?;
 
-    println!("Script unloaded.");
+    println!("[partydeck] util::kwin_dbus_unload_script - Script unloaded.");
     Ok(())
 }

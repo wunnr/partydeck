@@ -310,7 +310,7 @@ impl LightPartyApp {
             move || {
                 sleep(std::time::Duration::from_secs(2));
                 if let Err(err) = launch_game(&game, &dev_infos, &instances, &cfg) {
-                    println!("{}", err);
+                    println!("[partydeck] Error: {}", err);
                     msg("Launch Error", &format!("{err}"));
                 }
                 std::process::exit(0);
