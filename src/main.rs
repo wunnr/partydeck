@@ -13,11 +13,8 @@ use crate::monitor::*;
 use crate::paths::PATH_PARTY;
 use crate::util::*;
 
-use eframe::UserEvent;
-use winit::event_loop::{ControlFlow, EventLoop};
-use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
-
 fn main() -> eframe::Result {
+    // Our sdl/multimonitor stuff essentially depends on us running through x11.
     unsafe {
         std::env::set_var("SDL_VIDEODRIVER", "x11");
     }
@@ -27,12 +24,13 @@ fn main() -> eframe::Result {
     println!("[partydeck] Monitors detected:");
     for monitor in &monitors {
         println!(
-            "{} ({}x{})",
+            "[partydeck] {} ({}x{})",
             monitor.name(),
             monitor.width(),
             monitor.height()
         );
     }
+
     let args: Vec<String> = std::env::args().collect();
 
     if std::env::args().any(|arg| arg == "--help") {
@@ -130,12 +128,9 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    let mut eventloop = EventLoop::<UserEvent>::with_user_event().build()?;
-    eventloop.set_control_flow(ControlFlow::Poll);
+    println!("[partydeck] Starting eframe app...\n");
 
-    println!("\n[partydeck] starting...\n");
-
-    let mut party_winit_app = eframe::create_native(
+    eframe::run_native(
         "PartyDeck",
         options,
         Box::new(|cc| {
@@ -149,12 +144,7 @@ fn main() -> eframe::Result {
                 false => Box::<PartyApp>::new(PartyApp::new(monitors.clone())),
             })
         }),
-        &eventloop,
-    );
-
-    eventloop.run_app_on_demand(&mut party_winit_app)?;
-
-    Ok(())
+    )
 }
 
 static USAGE_TEXT: &str = r#"
