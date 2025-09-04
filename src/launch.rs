@@ -25,6 +25,14 @@ pub fn launch_game(
         }
     }
 
+    println!("\n[partydeck] Instances:");
+    for instance in instances {
+        println!(
+            "  - Profile: {}, Monitor: {}, Resolution: {}x{}",
+            instance.profname, instance.monitor, instance.width, instance.height
+        );
+    }
+
     let cmd = launch_cmd(game, input_devices, instances, cfg)?;
     println!("\n[partydeck] LAUNCH COMMAND:\n{}\n", cmd);
 
