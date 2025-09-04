@@ -1,7 +1,3 @@
-use eframe::UserEvent;
-use winit::event_loop::EventLoop;
-use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
-
 #[derive(Clone)]
 pub struct Monitor {
     name: String,
