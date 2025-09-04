@@ -20,7 +20,6 @@ pub fn set_instance_resolutions(
     let (basewidth, baseheight) = (primary_monitor.width(), primary_monitor.height());
     let playercount = instances.len();
 
-    let mut i = 0;
     for instance in instances {
         let (mut w, mut h) = match playercount {
             1 => (basewidth, baseheight),
@@ -38,10 +37,8 @@ pub fn set_instance_resolutions(
             h = 600;
             w = (h as f32 * ratio) as u32;
         }
-        println!("Resolution for instance {}/{playercount}: {w}x{h}", i + 1);
         instance.width = w;
         instance.height = h;
-        i += 1;
     }
 }
 
@@ -56,7 +53,6 @@ pub fn set_instance_resolutions_multimonitor(
         mon_playercounts[mon] += 1;
     }
 
-    let mut i = 0;
     for instance in instances.iter_mut() {
         let playercount = mon_playercounts[instance.monitor];
         let (basewidth, baseheight) = (
@@ -80,10 +76,8 @@ pub fn set_instance_resolutions_multimonitor(
             h = 600;
             w = (h as f32 * ratio) as u32;
         }
-        println!("Resolution for instance {}/{playercount}: {w}x{h}", i + 1);
         instance.width = w;
         instance.height = h;
-        i += 1;
     }
 }
 
