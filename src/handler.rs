@@ -178,13 +178,12 @@ impl Handler {
         for entry_result in entries {
             if let Ok(entry) = entry_result
                 && let Ok(file_type) = entry.file_type()
-                && !file_type.is_file()
+                && file_type.is_file()
                 && let Some(path_str) = entry.path().to_str()
                 && (path_str.ends_with(".png") || path_str.ends_with(".jpg"))
             {
                 out.push(entry.path());
             }
-            {}
         }
 
         out.sort();
