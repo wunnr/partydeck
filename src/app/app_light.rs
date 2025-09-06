@@ -603,19 +603,21 @@ impl LightPartyApp {
         }
 
         if self.instances.len() > 0 {
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.add(
-                    egui::Image::new(egui::include_image!("../../res/BTN_START.png"))
-                        .max_height(16.0),
-                );
-                ui.add(
-                    egui::Image::new(egui::include_image!("../../res/BTN_START_PS5.png"))
-                        .max_height(16.0),
-                );
-                if ui.button("Start").clicked() {
-                    self.prepare_game_launch();
-                }
+            ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::Image::new(egui::include_image!("../../res/BTN_START.png"))
+                            .max_height(16.0),
+                    );
+                    ui.add(
+                        egui::Image::new(egui::include_image!("../../res/BTN_START_PS5.png"))
+                            .max_height(16.0),
+                    );
+                    if ui.button("Start").clicked() {
+                        self.prepare_game_launch();
+                    }
+                });
+                ui.separator();
             });
         }
     }
