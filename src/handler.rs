@@ -28,6 +28,7 @@ pub struct Handler {
     pub copy_instead_paths: Vec<String>,
     pub remove_paths: Vec<String>,
     pub dll_overrides: Vec<String>,
+    pub pause_between_starts: Option<f64>,
 
     pub path_goldberg: String,
     pub steam_appid: Option<String>,
@@ -112,6 +113,8 @@ impl Handler {
                         .collect()
                 })
                 .unwrap_or_default(),
+            pause_between_starts: json["game.pause_between_starts"].as_f64(),
+
 
             path_goldberg: json["steam.api_path"]
                 .as_str()
