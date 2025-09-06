@@ -51,9 +51,18 @@ impl PartyApp {
                 ui.hyperlink_to(version_label, "https://github.com/wunnr/partydeck/releases");
                 ui.add(egui::Separator::default().vertical());
                 ui.hyperlink_to(
-                    "Open Source Licenses",
+                    "Licenses",
                     "https://github.com/wunnr/partydeck/tree/main?tab=License-2-ov-file",
                 );
+                ui.add(egui::Separator::default().vertical());
+                ui.hyperlink_to(
+                    "Handlers",
+                    "https://drive.proton.me/urls/D9HBKM18YR#zG8XC8yVy9WL",
+                );
+                ui.add(egui::Separator::default().vertical());
+                ui.hyperlink_to("Donate", "https://ko-fi.com/wunner");
+                ui.add(egui::Separator::default().vertical());
+                ui.hyperlink_to("GitHub", "https://github.com/wunnr/partydeck");
             });
         });
     }

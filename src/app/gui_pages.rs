@@ -20,10 +20,6 @@ impl PartyApp {
         ui.heading("Welcome to PartyDeck");
         ui.separator();
         ui.label("Press SELECT/BACK or Tab to unlock gamepad navigation.");
-        ui.hyperlink_to(
-            "Download game handlers here",
-            "https://drive.proton.me/urls/D9HBKM18YR#zG8XC8yVy9WL",
-        );
         ui.label("PartyDeck is in the very early stages of development; as such, you will likely encounter bugs, issues, and strange design decisions.");
         ui.label("For debugging purposes, it's recommended to read terminal output (stdout) for further information on errors.");
         ui.label("If you have found this software useful, consider donating to support further development!");
