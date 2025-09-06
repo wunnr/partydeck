@@ -6,14 +6,6 @@ pub struct Monitor {
 }
 
 impl Monitor {
-    pub fn new(name: String, width: u32, height: u32) -> Self {
-        Monitor {
-            name,
-            width,
-            height,
-        }
-    }
-
     pub fn name(&self) -> &str {
         &self.name
     }

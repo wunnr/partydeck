@@ -33,7 +33,6 @@ pub enum PadButton {
 #[derive(Clone)]
 pub struct DeviceInfo {
     pub path: String,
-    pub vendor: u16,
     pub enabled: bool,
     pub device_type: DeviceType,
 }
@@ -69,9 +68,6 @@ impl InputDevice {
     pub fn path(&self) -> &str {
         &self.path
     }
-    pub fn vendor(&self) -> u16 {
-        self.dev.input_id().vendor()
-    }
     pub fn enabled(&self) -> bool {
         self.enabled
     }
@@ -84,7 +80,6 @@ impl InputDevice {
     pub fn info(&self) -> DeviceInfo {
         DeviceInfo {
             path: self.path().to_string(),
-            vendor: self.vendor(),
             enabled: self.enabled(),
             device_type: self.device_type(),
         }

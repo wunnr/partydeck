@@ -38,9 +38,6 @@ impl Executable {
     pub fn filename(&self) -> &str {
         &self.filename
     }
-    pub fn args(&self) -> &str {
-        &self.args
-    }
 }
 
 pub enum Game {
