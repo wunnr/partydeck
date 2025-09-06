@@ -293,7 +293,7 @@ impl PartyApp {
 
         let enable_kwin_script_check = ui.checkbox(
             &mut self.options.enable_kwin_script,
-            "Automatically resize/reposition instances",
+            "(KDE) Automatically resize/reposition instances using KWin script",
         );
 
         let vertical_two_player_check = ui.checkbox(
@@ -441,7 +441,7 @@ impl PartyApp {
             self.infotext = "Many games have graphical problems or even crash when running at resolutions below 600p. If this is enabled, any instances below 600p will automatically be resized before launching.".to_string();
         }
         if gamescope_sdl_backend_check.hovered() {
-            self.infotext = "Runs gamescope sessions using the SDL backend. If unsure, leave this checked. If gamescope sessions only show a black screen or give an error (especially on Nvidia + Wayland), try disabling this.".to_string();
+            self.infotext = "Runs gamescope sessions using the SDL backend. This is required for multi-monitor support. If unsure, leave this checked. If gamescope sessions only show a black screen or give an error (especially on Nvidia + Wayland), try disabling this.".to_string();
         }
         if kbm_support_check.hovered() {
             self.infotext = "Runs a custom Gamescope build with support for holding keyboards and mice. If you want to use your own Gamescope installation, uncheck this.".to_string();
