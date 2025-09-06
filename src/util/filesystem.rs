@@ -60,19 +60,19 @@ pub fn get_rootpath_handler(handler: &Handler) -> Result<String, Box<dyn Error>>
         return value;
     }
 
-    if let Some(appid) = &handler.steam_appid {
-        if let Ok(appid_number) = str::parse::<u32>(appid) {
-            if let Some((app, library)) = steamlocate::SteamDir::locate()?
-                .find_app(appid_number)
-                .ok()
-                .flatten()
-            {
-                let path = library.resolve_app_dir(&app);
-                if path.exists() {
-                    let pathstr = path.to_string_lossy().to_string();
-                    add_path(&handler.uid, &pathstr)?;
-                    return Ok(pathstr);
-                }
+    if let Some(appid) = &handler.steam_appid
+        && let Ok(appid_number) = str::parse::<u32>(appid)
+        && let Some((app, library)) = steamlocate::SteamDir::locate()?
+            .find_app(appid_number)
+            .ok()
+            .flatten()
+    {
+        {
+            let path = library.resolve_app_dir(&app);
+            if path.exists() {
+                let pathstr = path.to_string_lossy().to_string();
+                add_path(&handler.uid, &pathstr)?;
+                return Ok(pathstr);
             }
         }
     }
@@ -131,17 +131,14 @@ fn add_path(uid: &str, path: &String) -> Result<(), Box<dyn Error>> {
 
 fn find_saved_path(uid: &str) -> Option<Result<String, Box<dyn Error>>> {
     println!("[partydeck] util::find_saved_path - Reading paths.json for root path of {uid}");
-    if let Ok(file) = File::open(PATH_PARTY.join("paths.json")) {
-        let reader = BufReader::new(file);
-        if let Ok(json) = serde_json::from_reader::<_, Value>(reader) {
-            if let Some(path) = json.get(uid) {
-                if let Some(path_str) = path.as_str() {
-                    println!(
-                        "[partydeck] util::find_saved_path - Found root path for {uid}: {path_str}"
-                    );
-                    return Some(Ok(path_str.to_string()));
-                }
-            }
+    if let Ok(file) = File::open(PATH_PARTY.join("paths.json"))
+        && let Ok(json) = serde_json::from_reader::<_, Value>(BufReader::new(file))
+        && let Some(path) = json.get(uid)
+        && let Some(path_str) = path.as_str()
+    {
+        {
+            println!("[partydeck] util::find_saved_path - Found root path for {uid}: {path_str}");
+            return Some(Ok(path_str.to_string()));
         }
     }
     None

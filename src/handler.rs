@@ -115,7 +115,6 @@ impl Handler {
                 .unwrap_or_default(),
             pause_between_starts: json["game.pause_between_starts"].as_f64(),
 
-
             path_goldberg: json["steam.api_path"]
                 .as_str()
                 .unwrap_or_default()
@@ -177,22 +176,15 @@ impl Handler {
         };
 
         for entry_result in entries {
-            let entry = match entry_result {
-                Ok(entry) => entry,
-                Err(_) => continue,
-            };
-            let file_type = match entry.file_type() {
-                Ok(ft) => ft,
-                Err(_) => continue,
-            };
-            if !file_type.is_file() {
-                continue;
+            if let Ok(entry) = entry_result
+                && let Ok(file_type) = entry.file_type()
+                && !file_type.is_file()
+                && let Some(path_str) = entry.path().to_str()
+                && (path_str.ends_with(".png") || path_str.ends_with(".jpg"))
+            {
+                out.push(entry.path());
             }
-            if let Some(path_str) = entry.path().to_str() {
-                if path_str.ends_with(".png") || path_str.ends_with(".jpg") {
-                    out.push(entry.path());
-                }
-            }
+            {}
         }
 
         out.sort();

@@ -94,12 +94,11 @@ pub fn scan_profiles(include_guest: bool) -> Vec<String> {
 
     if let Ok(entries) = std::fs::read_dir(PATH_PARTY.join("profiles")) {
         for entry in entries {
-            if let Ok(entry) = entry {
-                if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                    if let Some(name) = entry.file_name().to_str() {
-                        out.push(name.to_string());
-                    }
-                }
+            if let Ok(entry) = entry
+                && entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false)
+                && let Some(name) = entry.file_name().to_str()
+            {
+                out.push(name.to_string());
             }
         }
     }
