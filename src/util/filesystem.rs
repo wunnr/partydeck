@@ -14,7 +14,7 @@ pub fn copy_dir_recursive(
     overwrite_dest: bool,
 ) -> Result<(), Box<dyn Error>> {
     println!(
-        "copy_dir_recursive - src: {}, dest: {}",
+        "[partydeck] util::copy_dir_recursive - src: {}, dest: {}",
         src.display(),
         dest.display()
     );
@@ -111,7 +111,7 @@ pub fn get_rootpath(uid: &str) -> Result<String, Box<dyn Error>> {
 }
 
 fn add_path(uid: &str, path: &String) -> Result<(), Box<dyn Error>> {
-    println!("Updating paths.json with {uid}: {path}");
+    println!("[partydeck] util::add_path - Updating paths.json with {uid}: {path}");
     let mut paths = if let Ok(file) = File::open(PATH_PARTY.join("paths.json")) {
         serde_json::from_reader(BufReader::new(file))
             .unwrap_or(Value::Object(serde_json::Map::new()))
@@ -130,13 +130,15 @@ fn add_path(uid: &str, path: &String) -> Result<(), Box<dyn Error>> {
 }
 
 fn find_saved_path(uid: &str) -> Option<Result<String, Box<dyn Error>>> {
-    println!("Reading paths.json for root path of {uid}");
+    println!("[partydeck] util::find_saved_path - Reading paths.json for root path of {uid}");
     if let Ok(file) = File::open(PATH_PARTY.join("paths.json")) {
         let reader = BufReader::new(file);
         if let Ok(json) = serde_json::from_reader::<_, Value>(reader) {
             if let Some(path) = json.get(uid) {
                 if let Some(path_str) = path.as_str() {
-                    println!("Found root path for {uid}: {path_str}");
+                    println!(
+                        "[partydeck] util::find_saved_path - Found root path for {uid}: {path_str}"
+                    );
                     return Some(Ok(path_str.to_string()));
                 }
             }
@@ -161,9 +163,7 @@ impl SanitizePath for String {
         // Allow single quotes in paths since they are quoted when launching
         // commands. Double quotes would break the quoting though, so we still
         // strip those along with other potentially dangerous characters.
-        let chars_to_sanitize = [
-            ';', '&', '|', '$', '`', '(', ')', '<', '>', '"', '\\', '/',
-        ];
+        let chars_to_sanitize = [';', '&', '|', '$', '`', '(', ')', '<', '>', '"', '\\', '/'];
 
         if chars_to_sanitize.iter().any(|&c| sanitized.contains(c)) {
             sanitized = sanitized

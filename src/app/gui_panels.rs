@@ -65,7 +65,7 @@ impl PartyApp {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("➕").clicked() {
                     if let Err(err) = add_game() {
-                        println!("Couldn't add game: {err}");
+                        println!("[partydeck] Couldn't add game: {err}");
                         msg("Error", &format!("Couldn't add game: {err}"));
                     }
                     let dir_tmp = PATH_PARTY.join("tmp");
@@ -169,11 +169,11 @@ impl PartyApp {
                 };
 
                 let popup_id = ui.make_persistent_id(format!("gamectx{}", i));
-                egui::popup::popup_below_widget(
+                egui::old_popup::popup_below_widget(
                     ui,
                     popup_id,
                     &btn,
-                    egui::popup::PopupCloseBehavior::CloseOnClick,
+                    egui::PopupCloseBehavior::CloseOnClick,
                     |ui| {
                         if ui.button("Remove").clicked() {
                             if yesno(
@@ -181,7 +181,7 @@ impl PartyApp {
                                 &format!("Are you sure you want to remove {}?", game.name()),
                             ) {
                                 if let Err(err) = remove_game(&self.games[i]) {
-                                    println!("Failed to remove game: {}", err);
+                                    println!("[partydeck] Failed to remove game: {}", err);
                                     msg("Error", &format!("Failed to remove game: {}", err));
                                 }
                             }

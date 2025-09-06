@@ -172,7 +172,10 @@ pub fn scan_input_devices(filter: &PadFilterType) -> Vec<InputDevice> {
 
         if device_type != DeviceType::Other {
             if dev.1.set_nonblocking(true).is_err() {
-                println!("Failed to set non-blocking mode for {}", dev.0.display());
+                println!(
+                    "[partydeck] evdev: Failed to set non-blocking mode for {}",
+                    dev.0.display()
+                );
                 continue;
             }
             pads.push(InputDevice {

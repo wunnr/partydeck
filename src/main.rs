@@ -4,14 +4,33 @@ mod handler;
 mod input;
 mod instance;
 mod launch;
+mod monitor;
 mod paths;
 mod util;
 
 use crate::app::*;
+use crate::monitor::*;
 use crate::paths::PATH_PARTY;
 use crate::util::*;
 
 fn main() -> eframe::Result {
+    // Our sdl/multimonitor stuff essentially depends on us running through x11.
+    unsafe {
+        std::env::set_var("SDL_VIDEODRIVER", "x11");
+    }
+
+    let monitors = get_monitors_sdl();
+
+    println!("[partydeck] Monitors detected:");
+    for monitor in &monitors {
+        println!(
+            "[partydeck] {} ({}x{})",
+            monitor.name(),
+            monitor.width(),
+            monitor.height()
+        );
+    }
+
     let args: Vec<String> = std::env::args().collect();
 
     if std::env::args().any(|arg| arg == "--help") {
@@ -22,7 +41,7 @@ fn main() -> eframe::Result {
     if std::env::args().any(|arg| arg == "--kwin") {
         let args: Vec<String> = std::env::args().filter(|arg| arg != "--kwin").collect();
 
-        let (w, h) = get_screen_resolution();
+        let (w, h) = (monitors[0].width(), monitors[0].height());
         let mut cmd = std::process::Command::new("kwin_wayland");
 
         cmd.arg("--xwayland");
@@ -38,12 +57,12 @@ fn main() -> eframe::Result {
             .join(" ");
         cmd.arg(args_string);
 
-        println!("[PARTYDECK] Launching kwin session: {:?}", cmd);
+        println!("[partydeck] Launching kwin session: {:?}", cmd);
 
         match cmd.spawn() {
             Ok(_) => std::process::exit(0),
             Err(e) => {
-                eprintln!("Failed to start kwin_wayland: {}", e);
+                eprintln!("[partydeck] Failed to start kwin_wayland: {}", e);
                 std::process::exit(1);
             }
         }
@@ -83,7 +102,7 @@ fn main() -> eframe::Result {
         std::fs::remove_dir_all(PATH_PARTY.join("tmp")).unwrap();
     }
 
-    let (_, scrheight) = get_screen_resolution();
+    let scrheight = monitors[0].height();
 
     let scale = match fullscreen {
         true => scrheight as f32 / 560.0,
@@ -109,7 +128,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    println!("\n[PARTYDECK] starting...\n");
+    println!("[partydeck] Starting eframe app...\n");
 
     eframe::run_native(
         "PartyDeck",
@@ -119,8 +138,10 @@ fn main() -> eframe::Result {
             egui_extras::install_image_loaders(&cc.egui_ctx);
             cc.egui_ctx.set_zoom_factor(scale);
             Ok(match light {
-                true => Box::<LightPartyApp>::new(LightPartyApp::new_lightapp(exec, execargs)),
-                false => Box::<PartyApp>::default(),
+                true => {
+                    Box::<LightPartyApp>::new(LightPartyApp::new(exec, execargs, monitors.clone()))
+                }
+                false => Box::<PartyApp>::new(PartyApp::new(monitors.clone())),
             })
         }),
     )

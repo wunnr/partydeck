@@ -1,25 +1,34 @@
-scrwidth = workspace.activeScreen.geometry.width;
-scrheight = workspace.activeScreen.geometry.height;
+const x = [
+  [],
+  [0],
+  [0, 0],
+  [0, 0, 0.5],
+  [0, 0.5, 0, 0.5]
+]
 
-Xpos_1p = [0];
-Ypos_1p = [0];
-Xsize_1p = [scrwidth];
-Ysize_1p = [scrheight];
+const y = [
+  [],
+  [0],
+  [0, 0.5],
+  [0, 0.5, 0.5],
+  [0, 0, 0.5, 0.5]
+]
 
-Xpos_2p = [0, 0];
-Ypos_2p = [0, scrheight / 2];
-Xsize_2p = [scrwidth, scrwidth];
-Ysize_2p = [scrheight / 2, scrheight / 2];
+const width = [
+  [],
+  [1],
+  [1, 1],
+  [1, 0.5, 0.5],
+  [0.5, 0.5, 0.5, 0.5]
+]
 
-Xpos_3p = [0, 0, scrwidth / 2];
-Ypos_3p = [0, scrheight / 2, scrheight / 2];
-Xsize_3p = [scrwidth, scrwidth / 2, scrwidth / 2];
-Ysize_3p = [scrheight / 2, scrheight / 2, scrheight / 2];
-
-Xpos_4p = [0, scrwidth / 2, 0, scrwidth / 2];
-Ypos_4p = [0, 0, scrheight / 2, scrheight / 2];
-Xsize_4p = [scrwidth / 2, scrwidth / 2, scrwidth / 2, scrwidth / 2];
-Ysize_4p = [scrheight / 2, scrheight / 2, scrheight / 2, scrheight / 2];
+const height = [
+  [],
+  [1],
+  [0.5, 0.5],
+  [0.5, 0.5, 0.5],
+  [0.5, 0.5, 0.5, 0.5]
+]
 
 function getGamescopeClients() {
   var allClients = workspace.windowList();
@@ -34,6 +43,17 @@ function getGamescopeClients() {
     }
   }
   return gamescopeClients;
+}
+
+function numGamescopeClientsInOutput(output) {
+  var gamescopeClients = getGamescopeClients();
+  var count = 0;
+  for (var i = 0; i < gamescopeClients.length; i++) {
+    if (gamescopeClients[i].output == output) {
+      count++;
+    }
+  }
+  return count;
 }
 
 function gamescopeAboveBelow() {
@@ -53,42 +73,29 @@ function gamescopeAboveBelow() {
 function gamescopeSplitscreen() {
   var gamescopeClients = getGamescopeClients();
 
-  switch (gamescopeClients.length) {
-    case 0:
-      return;
-    case 1:
-      var Xpos = Xpos_1p;
-      var Ypos = Ypos_1p;
-      var Xsize = Xsize_1p;
-      var Ysize = Ysize_1p;
-      break;
-    case 2:
-      var Xpos = Xpos_2p;
-      var Ypos = Ypos_2p;
-      var Xsize = Xsize_2p;
-      var Ysize = Ysize_2p;
-      break;
-    case 3:
-      var Xpos = Xpos_3p;
-      var Ypos = Ypos_3p;
-      var Xsize = Xsize_3p;
-      var Ysize = Ysize_3p;
-      break;
-    case 4:
-      var Xpos = Xpos_4p;
-      var Ypos = Ypos_4p;
-      var Xsize = Xsize_4p;
-      var Ysize = Ysize_4p;
-      break;
+  var screenMap = new Map();
+  var screens = workspace.screens;
+  for (var j = 0; j < screens.length; j++) {
+    screenMap.set(screens[j], 0);
   }
 
   for (var i = 0; i < gamescopeClients.length; i++) {
+    var monitor = gamescopeClients[i].output;
+    var monitorX = monitor.geometry.x;
+    var monitorY = monitor.geometry.y;
+    var monitorWidth = monitor.geometry.width;
+    var monitorHeight = monitor.geometry.height;
+
+    var playerCount = numGamescopeClientsInOutput(monitor);
+    var playerIndex = screenMap.get(monitor);
+    screenMap.set(monitor, playerIndex + 1);
+
     gamescopeClients[i].noBorder = true;
     gamescopeClients[i].frameGeometry = {
-      x: Xpos[i],
-      y: Ypos[i],
-      width: Xsize[i],
-      height: Ysize[i],
+      x: monitorX + x[playerCount][playerIndex] * monitorWidth,
+      y: monitorY + y[playerCount][playerIndex] * monitorHeight,
+      width: monitorWidth * width[playerCount][playerIndex],
+      height: monitorHeight * height[playerCount][playerIndex],
     };
   }
   gamescopeAboveBelow();
