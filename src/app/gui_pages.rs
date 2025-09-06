@@ -210,7 +210,7 @@ impl PartyApp {
         let mut devices_to_remove: Vec<(usize, usize)> = Vec::new();
         for (i, instance) in &mut self.instances.iter_mut().enumerate() {
             ui.horizontal(|ui| {
-                ui.label(format!("Instance {}", i + 1));
+                ui.label(format!("{}", i + 1));
 
                 if let HandlerRef(_) = cur_game!(self) {
                     ui.label("👤");
@@ -222,13 +222,15 @@ impl PartyApp {
                     );
                 }
 
-                ui.label("🖵");
-                egui::ComboBox::from_id_salt(format!("monitors{i}")).show_index(
-                    ui,
-                    &mut instance.monitor,
-                    self.monitors.len(),
-                    |i| self.monitors[i].name(),
-                );
+                if self.options.gamescope_sdl_backend {
+                    ui.label("🖵");
+                    egui::ComboBox::from_id_salt(format!("monitors{i}")).show_index(
+                        ui,
+                        &mut instance.monitor,
+                        self.monitors.len(),
+                        |i| self.monitors[i].name(),
+                    );
+                }
 
                 if self.instance_add_dev == None {
                     if ui.button("➕ Invite New Device").clicked() {
