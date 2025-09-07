@@ -12,7 +12,15 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
     }
 
     println!("[partydeck] Creating profile {name}");
-    let path_steam = PATH_PARTY.join(format!("profiles/{name}/steam/settings"));
+    let path_profile = PATH_PARTY.join(format!("profiles/{name}"));
+    let path_steam = path_profile.join("steam/settings");
+
+    std::fs::create_dir_all(path_profile.join("AppData/Local"))?;
+    std::fs::create_dir_all(path_profile.join("AppData/LocalLow"))?;
+    std::fs::create_dir_all(path_profile.join("AppData/Roaming"))?;
+    std::fs::create_dir_all(path_profile.join("Documents"))?;
+    std::fs::create_dir_all(path_profile.join("share"))?;
+    std::fs::create_dir_all(path_profile.join("config"))?;
     std::fs::create_dir_all(path_steam.clone())?;
 
     let steam_id = format!("{:017}", rand::rng().random_range(u32::MIN..u32::MAX));
@@ -41,21 +49,6 @@ pub fn create_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
     println!("[partydeck] Creating game save {} for {}", h.uid, name);
-
-    if h.win_unique_appdata {
-        std::fs::create_dir_all(path_gamesave.join("_AppData/Local"))?;
-        std::fs::create_dir_all(path_gamesave.join("_AppData/LocalLow"))?;
-        std::fs::create_dir_all(path_gamesave.join("_AppData/Roaming"))?;
-    }
-    if h.win_unique_documents {
-        std::fs::create_dir_all(path_gamesave.join("_Documents"))?;
-    }
-    if h.linux_unique_localshare {
-        std::fs::create_dir_all(path_gamesave.join("_share"))?;
-    }
-    if h.linux_unique_config {
-        std::fs::create_dir_all(path_gamesave.join("_config"))?;
-    }
 
     for path in &h.game_unique_paths {
         if path.is_empty() {
