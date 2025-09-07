@@ -70,6 +70,12 @@ impl Game {
             }
         }
     }
+    pub fn win(&self) -> bool {
+        match self {
+            Game::ExecRef(e) => e.path().extension().unwrap_or_default() == "exe",
+            Game::HandlerRef(handler) => handler.win,
+        }
+    }
 }
 
 pub fn scan_all_games() -> Vec<Game> {
