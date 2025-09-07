@@ -34,10 +34,6 @@ pub struct Handler {
     pub steam_appid: Option<String>,
     pub coldclient: bool,
 
-    pub win_unique_appdata: bool,
-    pub win_unique_documents: bool,
-    pub linux_unique_localshare: bool,
-    pub linux_unique_config: bool,
     pub game_unique_paths: Vec<String>,
 }
 
@@ -125,16 +121,6 @@ impl Handler {
                 .and_then(|s| Some(s.to_string())),
             coldclient: json["steam.gb_coldclient"].as_bool().unwrap_or_default(),
 
-            win_unique_appdata: json["profiles.unique_appdata"]
-                .as_bool()
-                .unwrap_or_default(),
-            win_unique_documents: json["profiles.unique_documents"]
-                .as_bool()
-                .unwrap_or_default(),
-            linux_unique_localshare: json["profiles.unique_localshare"]
-                .as_bool()
-                .unwrap_or_default(),
-            linux_unique_config: json["profiles.unique_config"].as_bool().unwrap_or_default(),
             game_unique_paths: json["profiles.game_paths"]
                 .as_array()
                 .map(|arr| {
@@ -313,49 +299,47 @@ pub fn create_symlink_folder(h: &Handler) -> Result<(), Box<dyn Error>> {
         if !steam_settings.exists() {
             std::fs::create_dir_all(steam_settings.clone())?;
         }
-        std::fs::write(
-            steam_settings.join("configs.user.ini"),
-            "[user::saves]\nlocal_save_path=./goldbergsave",
-        )?;
         if let Some(appid) = &h.steam_appid {
             std::fs::write(steam_settings.join("steam_appid.txt"), appid.as_str())?;
         }
 
         // If the game uses goldberg coldclient, assume the handler owner has set up coldclient in the copy_to_symdir files
         // And so we don't copy goldberg dlls or generate interfaces
-        if !&h.coldclient {
-            let mut src = PATH_RES.clone();
-            src = match &h.win {
-                true => src.join("goldberg/win"),
-                false => src.join("goldberg/linux"),
-            };
-            src = match &h.is32bit {
-                true => src.join("x32"),
-                false => src.join("x64"),
-            };
+        if h.coldclient {
+            return Ok(());
+        }
 
-            copy_dir_recursive(&src, &dest, false, true)?;
+        let mut src = PATH_RES.clone();
+        src = match &h.win {
+            true => src.join("goldberg/win"),
+            false => src.join("goldberg/linux"),
+        };
+        src = match &h.is32bit {
+            true => src.join("x32"),
+            false => src.join("x64"),
+        };
 
-            let path_steamdll = path_root.join(&h.path_goldberg);
-            let steamdll = match &h.win {
-                true => match &h.is32bit {
-                    true => path_steamdll.join("steam_api.dll"),
-                    false => path_steamdll.join("steam_api64.dll"),
-                },
-                false => path_steamdll.join("libsteam_api.so"),
-            };
+        copy_dir_recursive(&src, &dest, false, true)?;
 
-            let gen_interfaces = match &h.is32bit {
-                true => PATH_RES.join("goldberg/generate_interfaces_x32"),
-                false => PATH_RES.join("goldberg/generate_interfaces_x64"),
-            };
-            let status = std::process::Command::new(gen_interfaces)
-                .arg(steamdll)
-                .current_dir(steam_settings)
-                .status()?;
-            if !status.success() {
-                return Err("Generate interfaces failed".into());
-            }
+        let path_steamdll = path_root.join(&h.path_goldberg);
+        let steamdll = match &h.win {
+            true => match &h.is32bit {
+                true => path_steamdll.join("steam_api.dll"),
+                false => path_steamdll.join("steam_api64.dll"),
+            },
+            false => path_steamdll.join("libsteam_api.so"),
+        };
+
+        let gen_interfaces = match &h.is32bit {
+            true => PATH_RES.join("goldberg/generate_interfaces_x32"),
+            false => PATH_RES.join("goldberg/generate_interfaces_x64"),
+        };
+        let status = std::process::Command::new(gen_interfaces)
+            .arg(steamdll)
+            .current_dir(steam_settings)
+            .status()?;
+        if !status.success() {
+            return Err("Generate interfaces failed".into());
         }
     }
 
