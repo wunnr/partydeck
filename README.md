@@ -11,17 +11,18 @@ A split-screen game launcher for Linux/SteamOS
     <img src=".github/assets/gameplay1.png" width="49%" />
 </p>
 
-> [!IMPORTANT]
-> This is the first serious software project I've ever done. It surely contains many violations of software best practices and security flaws; use at your own discretion! If you are experienced in software I would love to know what aspects of the codebase could be improved and how I can do better.
+> [!NOTE]
+> PartyDeck is in early development, and may contain violations of software best practices and security flaws; use at your own discretion! If you are experienced in software any advice and contributions are greatly appreciated.
 
 ## Features
 
-- Runs up to 4 instances of a game at a time and automatically fits each game window onto the screen
-- Supports native Linux games as well as Windows games through Proton
+- Runs multiple instances of a game at a time and automatically tiles up to 4 game windows per monitor
+- Supports native Linux games as well as Windows games through Proton-GE/UMU Launcher
 - Handler system that tells the launcher how to handle game files, meaning very little manual setup is required
 - Steam multiplayer API is emulated, allowing for multiple instances of Steam games
 - Works with most game controllers without any additional setup, drivers, or third-party software
 - Now works with multiple keyboards and mice!
+- Now supports launching the instances across multiple monitors when using the SDL gamescope backend! 
 - Uses sandboxing software to mask out controllers so that each game instance only detects the controller assigned to it, preventing input interference
 - Profile support allows each player to have their own persistent save data, settings, and stats for games
 - Works out of the box on SteamOS
@@ -72,7 +73,6 @@ PartyDeck uses a few software layers to provide a console-like split-screen gami
 ## Known Issues, Limitations and To-dos
 
 - AppImages and Flatpaks are not supported yet for native Linux games. Handlers can only run regular executables inside folders.
-- "Console-like splitscreen experience" means single-screen only for now. Multi-monitor support is possible but will require a better understanding of the KWin Scripting API.
 - Controller navigation support in the launcher is super primitive; I'd love to try making a more controller-friendly, Big-Picture-style UI in the future, but have no immediate plans for it.
 - Games using Goldberg might have trouble discovering LAN games from other devices. If this happens, you can try adding a firewall rule for port 47584. If connecting two Steam Decks through LAN, their hostnames should be changed from the default "steamdeck".
 
