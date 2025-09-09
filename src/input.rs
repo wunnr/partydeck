@@ -132,6 +132,38 @@ impl InputDevice {
         }
         btn
     }
+
+    pub fn matches(&self, identifier: &str) -> bool {
+        // Match by exact path
+        if self.path == identifier {
+            return true;
+        }
+        
+        // Match by path without /dev/input/ prefix
+        if identifier.starts_with("event") {
+            let path_end = self.path.split('/').last().unwrap_or("");
+            if path_end == identifier {
+                return true;
+            }
+        }
+        
+        let normalized_id = identifier.trim().to_lowercase();
+        
+        // Check device type keywords
+        match normalized_id.as_str() {
+            "keyboard" | "kbd" => return self.device_type == DeviceType::Keyboard,
+            "mouse" => return self.device_type == DeviceType::Mouse,
+            "gamepad" | "controller" | "pad" => return self.device_type == DeviceType::Gamepad,
+            _ => {}
+        }
+        
+        // Match by device name (partial, case-insensitive)
+        let device_name = self.name().to_lowercase();
+        let fancy_name = self.fancyname().to_lowercase();
+        
+        // Check if the identifier is contained in either name
+        device_name.contains(&normalized_id) || fancy_name.contains(&normalized_id)
+    }
 }
 
 pub fn scan_input_devices(filter: &PadFilterType) -> Vec<InputDevice> {
@@ -184,4 +216,21 @@ pub fn scan_input_devices(filter: &PadFilterType) -> Vec<InputDevice> {
     }
     pads.sort_by_key(|pad| pad.path().to_string());
     pads
+}
+
+pub fn find_device_index(devices: &[InputDevice], identifier: &str) -> Option<usize> {
+    devices.iter().position(|d| d.matches(identifier))
+}
+
+pub fn list_all_devices(devices: &[InputDevice]) {
+    println!("[partydeck] Available input devices:");
+    for (i, device) in devices.iter().enumerate() {
+        println!(
+            "  [{}] {} {} - ({})",
+            i,
+            device.emoji(),
+            device.fancyname(),
+            device.path()
+        );
+    }
 }

@@ -34,6 +34,7 @@ pub struct LightPartyApp {
     pub loading_since: Option<std::time::Instant>,
     #[allow(dead_code)]
     pub task: Option<std::thread::JoinHandle<()>>,
+    pub auto_launch_pending: bool,
 }
 
 impl LightPartyApp {
@@ -54,6 +55,27 @@ impl LightPartyApp {
             loading_msg: None,
             loading_since: None,
             task: None,
+            auto_launch_pending: false,
+        }
+    }
+
+    pub fn new_with_instances(game: Game, instances: Vec<Instance>, monitors: Vec<Monitor>, auto_launch: bool) -> Self {
+        let options = load_cfg();
+        let input_devices = scan_input_devices(&options.pad_filter_type);
+        
+        Self {
+            options,
+            cur_page: MenuPage::Instances,
+            infotext: String::new(),
+            monitors,
+            input_devices,
+            instances,
+            instance_add_dev: None,
+            game,
+            loading_msg: None,
+            loading_since: None,
+            task: None,
+            auto_launch_pending: auto_launch,
         }
     }
 }
@@ -69,6 +91,11 @@ impl eframe::App for LightPartyApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.auto_launch_pending && self.task.is_none() {
+            self.auto_launch_pending = false;
+            self.prepare_game_launch();
+        }
+
         egui::TopBottomPanel::top("menu_nav_panel").show(ctx, |ui| {
             if self.task.is_some() {
                 ui.disable();

@@ -1,4 +1,5 @@
 mod app;
+mod cli;
 mod game;
 mod handler;
 mod input;
@@ -8,10 +9,13 @@ mod monitor;
 mod paths;
 mod util;
 
-use crate::app::*;
-use crate::monitor::*;
+use crate::app::{PartyApp, LightPartyApp, load_cfg};
+use crate::cli::{parse_args, build_instances_from_cli, resolve_game_from_cli, LaunchMode};
+use crate::game::{list_all_handlers, Game};
+use crate::input::{scan_input_devices, list_all_devices};
+use crate::monitor::get_monitors_sdl;
 use crate::paths::PATH_PARTY;
-use crate::util::*;
+use crate::util::{scan_profiles, remove_guest_profiles};
 
 fn main() -> eframe::Result {
     // Our sdl/multimonitor stuff essentially depends on us running through x11.
@@ -31,16 +35,9 @@ fn main() -> eframe::Result {
         );
     }
 
-    let args: Vec<String> = std::env::args().collect();
+    let cli_args = parse_args();
 
-    if std::env::args().any(|arg| arg == "--help") {
-        println!("{}", USAGE_TEXT);
-        std::process::exit(0);
-    }
-
-    if std::env::args().any(|arg| arg == "--kwin") {
-        let args: Vec<String> = std::env::args().filter(|arg| arg != "--kwin").collect();
-
+    if cli_args.kwin {
         let (w, h) = (monitors[0].width(), monitors[0].height());
         let mut cmd = std::process::Command::new("kwin_wayland");
 
@@ -50,6 +47,10 @@ fn main() -> eframe::Result {
         cmd.arg("--height");
         cmd.arg(h.to_string());
         cmd.arg("--exit-with-session");
+        
+        let args: Vec<String> = std::env::args()
+            .filter(|arg| arg != "--kwin")
+            .collect();
         let args_string = args
             .iter()
             .map(|arg| format!("\"{}\"", arg))
@@ -68,26 +69,6 @@ fn main() -> eframe::Result {
         }
     }
 
-    let mut exec = String::new();
-    let mut execargs = String::new();
-    if let Some(exec_index) = args.iter().position(|arg| arg == "--exec") {
-        if let Some(next_arg) = args.get(exec_index + 1) {
-            exec = next_arg.clone();
-        } else {
-            eprintln!("{}", USAGE_TEXT);
-            std::process::exit(1);
-        }
-    }
-    if let Some(execargs_index) = args.iter().position(|arg| arg == "--args") {
-        if let Some(next_arg) = args.get(execargs_index + 1) {
-            execargs = next_arg.clone();
-        } else {
-            eprintln!("{}", USAGE_TEXT);
-            std::process::exit(1);
-        }
-    }
-
-    let fullscreen = std::env::args().any(|arg| arg == "--fullscreen");
 
     std::fs::create_dir_all(PATH_PARTY.join("gamesyms"))
         .expect("Failed to create gamesyms directory");
@@ -103,13 +84,12 @@ fn main() -> eframe::Result {
     }
 
     let scrheight = monitors[0].height();
-
-    let scale = match fullscreen {
+    let scale = match cli_args.fullscreen {
         true => scrheight as f32 / 560.0,
         false => 1.3,
     };
 
-    let light = !exec.is_empty();
+    let light = !matches!(cli_args.mode, LaunchMode::Gui);
 
     let win_width = match light {
         true => 900.0,
@@ -120,7 +100,7 @@ fn main() -> eframe::Result {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_inner_size([win_width, 540.0])
             .with_min_inner_size([640.0, 360.0])
-            .with_fullscreen(fullscreen)
+            .with_fullscreen(cli_args.fullscreen)
             .with_icon(
                 eframe::icon_data::from_png_bytes(&include_bytes!("../res/icon.png")[..])
                     .expect("Failed to load icon"),
@@ -133,27 +113,81 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "PartyDeck",
         options,
-        Box::new(|cc| {
+        Box::new(move |cc| {
             // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
             cc.egui_ctx.set_zoom_factor(scale);
-            Ok(match light {
-                true => {
-                    Box::<LightPartyApp>::new(LightPartyApp::new(exec, execargs, monitors.clone()))
+            
+            Ok(match cli_args.mode {
+                LaunchMode::Gui => {
+                    println!("[partydeck] Starting in GUI mode");
+                    Box::<PartyApp>::new(PartyApp::new(monitors.clone()))
                 }
-                false => Box::<PartyApp>::new(PartyApp::new(monitors.clone())),
+                LaunchMode::Handler(_) | LaunchMode::Executable(_, _) => {
+                    println!("[partydeck] Starting in CLI mode");
+                    
+                    // Resolve the game
+                    let game = match resolve_game_from_cli(&cli_args.mode) {
+                        Ok(g) => g,
+                        Err(e) => {
+                            eprintln!("[partydeck] Error: {}", e);
+                            list_all_handlers();
+                            std::process::exit(1);
+                        }
+                    };
+                    
+                    // Load configuration and scan devices
+                    let cfg = load_cfg();
+                    let input_devices = scan_input_devices(&cfg.pad_filter_type);
+                    
+                    // List devices if no players specified
+                    if cli_args.players.is_empty() && !cli_args.auto_launch {
+                        list_all_devices(&input_devices);
+                    }
+                    
+                    // Build instances if players were specified
+                    if !cli_args.players.is_empty() {
+                        let profiles = scan_profiles(true);
+                        
+                        match build_instances_from_cli(
+                            &cli_args.players, 
+                            &input_devices, 
+                            &profiles,
+                            cli_args.create_profiles
+                        ) {
+                            Ok(instances) => {
+                                println!("[partydeck] Created {} instances from CLI", instances.len());
+                                for (i, instance) in instances.iter().enumerate() {
+                                    println!("  Instance {}: {} devices, monitor {}", 
+                                        i + 1, 
+                                        instance.devices.len(),
+                                        instance.monitor
+                                    );
+                                }
+                                
+                                Box::<LightPartyApp>::new(LightPartyApp::new_with_instances(
+                                    game,
+                                    instances,
+                                    monitors.clone(),
+                                    cli_args.auto_launch,
+                                ))
+                            }
+                            Err(e) => {
+                                eprintln!("[partydeck] Error building instances: {}", e);
+                                list_all_devices(&input_devices);
+                                std::process::exit(1);
+                            }
+                        }
+                    } else {
+                        // No players specified
+                        let (exec, args) = match game {
+                            Game::ExecRef(ref e) => (e.path().to_string_lossy().to_string(), e.args.clone()),
+                            Game::HandlerRef(ref h) => (h.uid.clone(), String::new()),
+                        };
+                        Box::<LightPartyApp>::new(LightPartyApp::new(exec, args, monitors.clone()))
+                    }
+                }
             })
         }),
     )
 }
-
-static USAGE_TEXT: &str = r#"
-{}
-Usage: partydeck [OPTIONS]
-
-Options:
-    --exec <executable>   Execute the specified executable in splitscreen. If this isn't specified, PartyDeck will launch in the regular GUI mode.
-    --args [args]         Specify arguments for the executable to be launched with. Must be quoted if containing spaces.
-    --fullscreen          Start the GUI in fullscreen mode
-    --kwin                Launch PartyDeck inside of a KWin session
-"#;
