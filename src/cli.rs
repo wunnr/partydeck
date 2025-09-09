@@ -11,7 +11,6 @@ pub struct CliArgs {
     pub auto_launch: bool,
     pub fullscreen: bool,
     pub kwin: bool,
-    pub create_profiles: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -105,10 +104,6 @@ pub fn parse_args() -> CliArgs {
                 cli_args.kwin = true;
                 i += 1;
             }
-            "--create-profiles" => {
-                cli_args.create_profiles = true;
-                i += 1;
-            }
             _ => {
                 if args[i].starts_with("--") {
                     eprintln!("Unknown argument: {}", args[i]);
@@ -158,12 +153,7 @@ fn parse_player_spec(spec: &str) -> Option<PlayerSpec> {
     }
 }
 
-pub fn build_instances_from_cli(
-    players: &[PlayerSpec],
-    input_devices: &[InputDevice],
-    profiles: &[String],
-    create_profiles: bool,
-) -> Result<Vec<Instance>, String> {
+pub fn build_instances_from_cli(players: &[PlayerSpec], input_devices: &[InputDevice], profiles: &[String]) -> Result<Vec<Instance>, String> {
     let mut instances = Vec::new();
     let mut used_guest_names = Vec::new();
 
@@ -199,9 +189,10 @@ pub fn build_instances_from_cli(
         {
             instance.profselection = prof_idx;
             instance.profname = player_spec.profile.clone();
-        } else if create_profiles {
+        } else {
+            // Create profile if it doesn't exist
             println!(
-                "[partydeck] Creating new profile '{}'",
+                "[partydeck] Profile '{}' not found, creating new profile...",
                 player_spec.profile
             );
             if let Err(e) = crate::util::create_profile(&player_spec.profile) {
@@ -224,11 +215,6 @@ pub fn build_instances_from_cli(
                     player_spec.profile
                 ));
             }
-        } else {
-            return Err(format!(
-                "Profile '{}' not found. Use --create-profiles to create new profiles.",
-                player_spec.profile
-            ));
         }
 
         // Handle devices
@@ -288,10 +274,9 @@ Options:
     --player <spec>          Add a player with profile and devices
                              Format: profile=<name>,devices=<dev1>,<dev2>,...
                              Optional: monitor=<index>
+                             Note: Profiles will be created automatically if they don't exist
 
     --auto-launch            Automatically start the game without GUI interaction
-
-    --create-profiles        Allow creation of new profiles if they don't exist
 
     --fullscreen             Start the GUI in fullscreen mode
 
@@ -300,17 +285,17 @@ Options:
     --help                   Show this help message
 
 Examples:
-    # Launch with handler and two players (Desktop Mode)
+    # Launch with handler and two players
     partydeck --handler "MyGameUID" \
         --player "profile=Player1,devices=/dev/input/event3,/dev/input/event5" \
-        --player "profile=Player2,devices=Xbox Controller" \
-        --create-profiles --auto-launch
+        --player "profile=Player2,devices=Xbox Controller,monitor=1" \
+        --auto-launch
 
     # Launch with handler and two players (GameMode - PartyDeck launch options)
     --handler "MyGameUID"
     --player "profile=Player1,devices=/dev/input/event3,/dev/input/event5"
     --player "profile=Player2,devices=Xbox Controller"
-    --create-profiles --auto-launch --kwin --fullscreen
+    --auto-launch --kwin --fullscreen
 
 Device specifications:
     - Use exact paths: /dev/input/event3
@@ -319,5 +304,4 @@ Device specifications:
 
 Monitor specification:
     - Add monitor=<index> to assign player to specific monitor (0-based)
-    --player "profile=Player2,devices=Xbox Controller,monitor=1"
 "#;

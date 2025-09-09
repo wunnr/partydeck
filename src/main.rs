@@ -153,7 +153,6 @@ fn main() -> eframe::Result {
                             &cli_args.players, 
                             &input_devices, 
                             &profiles,
-                            cli_args.create_profiles
                         ) {
                             Ok(instances) => {
                                 println!("[partydeck] Created {} instances from CLI", instances.len());
