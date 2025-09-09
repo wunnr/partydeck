@@ -300,14 +300,17 @@ Options:
     --help                   Show this help message
 
 Examples:
-    # Launch with handler and two players
+    # Launch with handler and two players (Desktop Mode)
     partydeck --handler "MyGameUID" \
         --player "profile=Player1,devices=/dev/input/event3,/dev/input/event5" \
-        --player "profile=Player2,devices=Xbox Controller,monitor=1" \
+        --player "profile=Player2,devices=Xbox Controller" \
         --create-profiles --auto-launch
 
-    # GUI mode with fullscreen
-    partydeck --fullscreen
+    # Launch with handler and two players (GameMode - PartyDeck launch options)
+    --handler "MyGameUID"
+    --player "profile=Player1,devices=/dev/input/event3,/dev/input/event5"
+    --player "profile=Player2,devices=Xbox Controller"
+    --create-profiles --auto-launch --kwin --fullscreen
 
 Device specifications:
     - Use exact paths: /dev/input/event3
@@ -316,4 +319,5 @@ Device specifications:
 
 Monitor specification:
     - Add monitor=<index> to assign player to specific monitor (0-based)
+    --player "profile=Player2,devices=Xbox Controller,monitor=1"
 "#;
