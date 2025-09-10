@@ -1,5 +1,5 @@
 use crate::game::{find_game_by_handler_uid, Executable, Game};
-use crate::input::{find_device_index, InputDevice};
+use crate::input::InputDevice;
 use crate::instance::Instance;
 use crate::util::{scan_profiles, GUEST_NAMES};
 use std::path::PathBuf;
@@ -153,9 +153,14 @@ fn parse_player_spec(spec: &str) -> Option<PlayerSpec> {
     }
 }
 
-pub fn build_instances_from_cli(players: &[PlayerSpec], input_devices: &[InputDevice], profiles: &[String]) -> Result<Vec<Instance>, String> {
+pub fn build_instances_from_cli(
+    players: &[PlayerSpec], 
+    input_devices: &[InputDevice], 
+    profiles: &[String]
+) -> Result<Vec<Instance>, String> {
     let mut instances = Vec::new();
     let mut used_guest_names = Vec::new();
+    let mut used_device_indices: Vec<usize> = Vec::new();
 
     for (i, player_spec) in players.iter().enumerate() {
         let mut instance = Instance {
@@ -219,13 +224,16 @@ pub fn build_instances_from_cli(players: &[PlayerSpec], input_devices: &[InputDe
 
         // Handle devices
         for device_id in &player_spec.devices {
-            if let Some(idx) = find_device_index(input_devices, device_id) {
+            let idx = find_next_available_device(input_devices, device_id, &used_device_indices);
+            
+            if let Some(idx) = idx {
                 if !instance.devices.contains(&idx) {
                     instance.devices.push(idx);
+                    used_device_indices.push(idx);
                 }
             } else {
                 println!(
-                    "[partydeck] Warning: Device '{}' not found for player {}",
+                    "[partydeck] Warning: No available device matching '{}' for player {}",
                     device_id,
                     i + 1
                 );
@@ -247,6 +255,20 @@ pub fn build_instances_from_cli(players: &[PlayerSpec], input_devices: &[InputDe
     }
 
     Ok(instances)
+}
+
+fn find_next_available_device(
+    devices: &[InputDevice], 
+    identifier: &str, 
+    used_indices: &[usize]
+) -> Option<usize> {
+    devices
+        .iter()
+        .enumerate()
+        .find(|(idx, device)| {
+            !used_indices.contains(idx) && device.matches(identifier)
+        })
+        .map(|(idx, _)| idx)
 }
 
 pub fn resolve_game_from_cli(mode: &LaunchMode) -> Result<Game, String> {
