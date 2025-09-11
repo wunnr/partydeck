@@ -218,10 +218,6 @@ pub fn scan_input_devices(filter: &PadFilterType) -> Vec<InputDevice> {
     pads
 }
 
-pub fn find_device_index(devices: &[InputDevice], identifier: &str) -> Option<usize> {
-    devices.iter().position(|d| d.matches(identifier))
-}
-
 pub fn list_all_devices(devices: &[InputDevice]) {
     println!("[partydeck] Available input devices:");
     for (i, device) in devices.iter().enumerate() {

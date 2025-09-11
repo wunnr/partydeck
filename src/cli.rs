@@ -1,8 +1,8 @@
-use crate::game::{find_game_by_handler_uid, Executable, Game};
+use crate::game::{Executable, Game};
 use crate::input::InputDevice;
-use crate::instance::Instance;
-use crate::util::{scan_profiles, GUEST_NAMES};
-use std::path::PathBuf;
+use crate::instance::{set_instance_names,Instance};
+use crate::util::scan_profiles;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Default)]
 pub struct CliArgs {
@@ -119,38 +119,33 @@ pub fn parse_args() -> CliArgs {
 }
 
 fn parse_player_spec(spec: &str) -> Option<PlayerSpec> {
-    let mut profile = String::new();
-    let mut devices = Vec::new();
-    let mut monitor = None;
-    let mut in_devices = false;
-
-    for part in spec.split(',') {
-        if let Some((key, value)) = part.split_once('=') {
-            match key.trim() {
-                "profile" => {
-                    profile = value.trim().to_string();
-                    in_devices = false;
-                }
-                "devices" => {
-                    devices.push(value.trim().to_string());
-                    in_devices = true;
-                }
-                "monitor" => {
-                    monitor = value.trim().parse::<usize>().ok();
-                    in_devices = false;
-                }
-                _ => {}
+    let mut parts: HashMap<&str, Vec<&str>> = HashMap::new();
+    let mut current_key: Option<&str> = None;
+    
+    for segment in spec.split(',') {
+        if let Some((key, value)) = segment.split_once('=') {
+            current_key = Some(key.trim());
+            parts.entry(key.trim())
+                .or_insert_with(Vec::new)
+                .push(value.trim());
+        } else if let Some(key) = current_key {
+            if key == "devices" && !segment.trim().is_empty() {
+                parts.entry(key)
+                    .or_insert_with(Vec::new)
+                    .push(segment.trim());
             }
-        } else if in_devices || part.starts_with("/dev/") {
-            devices.push(part.trim().to_string());
         }
     }
-
-    if !profile.is_empty() && !devices.is_empty() {
-        Some(PlayerSpec { profile, devices, monitor })
-    } else {
-        None
-    }
+    
+    let profile = parts.get("profile")?.first()?.to_string();
+    let devices = parts.get("devices")?
+        .iter()
+        .map(|d| d.to_string())
+        .collect();
+    let monitor = parts.get("monitor")
+        .and_then(|m| m.first()?.parse().ok());
+    
+    Some(PlayerSpec { profile, devices, monitor })
 }
 
 pub fn build_instances_from_cli(
@@ -159,7 +154,6 @@ pub fn build_instances_from_cli(
     profiles: &[String]
 ) -> Result<Vec<Instance>, String> {
     let mut instances = Vec::new();
-    let mut used_guest_names = Vec::new();
     let mut used_device_indices: Vec<usize> = Vec::new();
 
     for (i, player_spec) in players.iter().enumerate() {
@@ -175,57 +169,52 @@ pub fn build_instances_from_cli(
         // Handle profile
         if player_spec.profile.eq_ignore_ascii_case("guest") {
             instance.profselection = 0;
-            let available_names: Vec<&str> = GUEST_NAMES
-                .iter()
-                .filter(|&&name| !used_guest_names.contains(&name))
-                .copied()
-                .collect();
-            
-            if !available_names.is_empty() {
-                let chosen = available_names[fastrand::usize(..available_names.len())];
-                instance.profname = format!(".{}", chosen);
-                used_guest_names.push(chosen);
-            } else {
-                instance.profname = format!(".Guest{}", i + 1);
-            }
-        } else if let Some(prof_idx) = profiles
-            .iter()
-            .position(|p| p.eq_ignore_ascii_case(&player_spec.profile))
-        {
-            instance.profselection = prof_idx;
-            instance.profname = player_spec.profile.clone();
         } else {
-            // Create profile if it doesn't exist
-            println!(
-                "[partydeck] Profile '{}' not found, creating new profile...",
-                player_spec.profile
-            );
-            if let Err(e) = crate::util::create_profile(&player_spec.profile) {
-                return Err(format!(
-                    "Failed to create profile '{}': {}",
-                    player_spec.profile, e
-                ));
-            }
-            // Rescan profiles and find the index
-            let updated_profiles = scan_profiles(true);
-            if let Some(prof_idx) = updated_profiles
+            // Check if profile exists
+            if let Some(prof_idx) = profiles
                 .iter()
                 .position(|p| p.eq_ignore_ascii_case(&player_spec.profile))
             {
                 instance.profselection = prof_idx;
-                instance.profname = player_spec.profile.clone();
+                instance.profname = profiles[prof_idx].clone();
             } else {
-                return Err(format!(
-                    "Failed to find profile '{}' after creation",
+                // Create profile if it doesn't exist
+                println!("[partydeck] Profile '{}' not found, creating new profile...",
                     player_spec.profile
-                ));
+                );
+                if let Err(e) = crate::util::create_profile(&player_spec.profile) {
+                    return Err(format!(
+                        "Failed to create profile '{}': {}",
+                        player_spec.profile, e
+                    ));
+                }
+                // Rescan profiles and find the index
+                let updated_profiles = scan_profiles(true);
+                if let Some(prof_idx) = updated_profiles
+                    .iter()
+                    .position(|p| p.eq_ignore_ascii_case(&player_spec.profile))
+                {
+                    instance.profselection = prof_idx;
+                    instance.profname = player_spec.profile.clone();
+                } else {
+                    return Err(format!(
+                        "Failed to find profile '{}' after creation",
+                        player_spec.profile
+                    ));
+                }
             }
         }
 
         // Handle devices
         for device_id in &player_spec.devices {
-            let idx = find_next_available_device(input_devices, device_id, &used_device_indices);
-            
+            let idx = input_devices
+                .iter()
+                .enumerate()
+                .find(|(idx, device)| {
+                    !used_device_indices.contains(idx) && device.matches(device_id)
+                })
+                .map(|(idx, _)| idx);
+
             if let Some(idx) = idx {
                 if !instance.devices.contains(&idx) {
                     instance.devices.push(idx);
@@ -254,44 +243,20 @@ pub fn build_instances_from_cli(
         return Err("No instances created from CLI specifications".to_string());
     }
 
+    set_instance_names(&mut instances, profiles);
+
     Ok(instances)
-}
-
-fn find_next_available_device(
-    devices: &[InputDevice], 
-    identifier: &str, 
-    used_indices: &[usize]
-) -> Option<usize> {
-    devices
-        .iter()
-        .enumerate()
-        .find(|(idx, device)| {
-            !used_indices.contains(idx) && device.matches(identifier)
-        })
-        .map(|(idx, _)| idx)
-}
-
-pub fn resolve_game_from_cli(mode: &LaunchMode) -> Result<Game, String> {
-    match mode {
-        LaunchMode::Gui => Err("GUI mode does not specify a game".to_string()),
-        LaunchMode::Handler(uid) => find_game_by_handler_uid(uid)
-            .ok_or_else(|| format!("Handler with UID '{}' not found", uid)),
-        LaunchMode::Executable(exec, args) => Ok(Game::ExecRef(Executable::new(
-            PathBuf::from(exec),
-            args.clone(),
-        ))),
-    }
 }
 
 pub static USAGE_TEXT: &str = r#"
 Usage: partydeck [OPTIONS]
 
 Options:
-    --handler <uid>          Launch a game using its handler UID
-
     --exec <executable>      Launch a specific executable
 
     --args <arguments>       Arguments for the executable (use after --exec)
+
+    --handler <uid>          Launch a game using its handler UID
 
     --player <spec>          Add a player with profile and devices
                              Format: profile=<name>,devices=<dev1>,<dev2>,...
@@ -317,6 +282,7 @@ Examples:
     --handler "MyGameUID"
     --player "profile=Player1,devices=/dev/input/event3,/dev/input/event5"
     --player "profile=Player2,devices=Xbox Controller"
+    --player "profile=Player3,devices=Xbox Controller"
     --auto-launch --kwin --fullscreen
 
 Device specifications:
