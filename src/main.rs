@@ -10,9 +10,10 @@ mod paths;
 mod util;
 
 use crate::app::{PartyApp, LightPartyApp, load_cfg};
-use crate::cli::{parse_args, build_instances_from_cli, LaunchMode};
-use crate::game::{list_all_handlers, Game, find_game_by_handler_uid, Executable};
-use crate::input::{scan_input_devices, list_all_devices};
+use crate::cli::{parse_args, list_all_devices, list_all_handlers, LaunchMode};
+use crate::instance::build_instance_from_specs;
+use crate::game::{Game, find_game_by_handler_uid, Executable};
+use crate::input::{scan_input_devices};
 use crate::monitor::get_monitors_sdl;
 use crate::paths::PATH_PARTY;
 use crate::util::{scan_profiles, remove_guest_profiles};
@@ -39,7 +40,35 @@ fn main() -> eframe::Result {
     let cli_args = parse_args();
 
     if cli_args.kwin {
-        launch_kwin_session(&monitors);
+        let (w, h) = (monitors[0].width(), monitors[0].height());
+        let mut cmd = std::process::Command::new("kwin_wayland");
+
+        cmd.arg("--xwayland");
+        cmd.arg("--width");
+        cmd.arg(w.to_string());
+        cmd.arg("--height");
+        cmd.arg(h.to_string());
+        cmd.arg("--exit-with-session");
+        
+        let args: Vec<String> = std::env::args()
+            .filter(|arg| arg != "--kwin")
+            .collect();
+        let args_string = args
+            .iter()
+            .map(|arg| format!("\"{}\"", arg))
+            .collect::<Vec<String>>()
+            .join(" ");
+        cmd.arg(args_string);
+
+        println!("[partydeck] Launching kwin session: {:?}", cmd);
+
+        match cmd.spawn() {
+            Ok(_) => std::process::exit(0),
+            Err(e) => {
+                eprintln!("[partydeck] Failed to start kwin_wayland: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 
     std::fs::create_dir_all(PATH_PARTY.join("gamesyms"))
@@ -160,7 +189,7 @@ fn create_cli_app_with_players(
 ) -> Box<dyn eframe::App> {
     let profiles = scan_profiles(true);
     
-    match build_instances_from_cli(&cli_args.players, &input_devices, &profiles) {
+    match build_instance_from_specs(&cli_args.players, &input_devices, &profiles) {
         Ok(instances) => {
             println!("[partydeck] Created {} instances from CLI", instances.len());
             for (i, instance) in instances.iter().enumerate() {
@@ -185,38 +214,6 @@ fn create_cli_app_with_players(
             eprintln!("\nAvailable devices:");
             list_all_devices(&input_devices);
             eprintln!("\nCheck your device specifications or use --help for usage");
-            std::process::exit(1);
-        }
-    }
-}
-
-fn launch_kwin_session(monitors: &[crate::monitor::Monitor]) {
-    let (w, h) = (monitors[0].width(), monitors[0].height());
-    let mut cmd = std::process::Command::new("kwin_wayland");
-
-    cmd.arg("--xwayland");
-    cmd.arg("--width");
-    cmd.arg(w.to_string());
-    cmd.arg("--height");
-    cmd.arg(h.to_string());
-    cmd.arg("--exit-with-session");
-    
-    let args: Vec<String> = std::env::args()
-        .filter(|arg| arg != "--kwin")
-        .collect();
-    let args_string = args
-        .iter()
-        .map(|arg| format!("\"{}\"", arg))
-        .collect::<Vec<String>>()
-        .join(" ");
-    cmd.arg(args_string);
-
-    println!("[partydeck] Launching kwin session: {:?}", cmd);
-
-    match cmd.spawn() {
-        Ok(_) => std::process::exit(0),
-        Err(e) => {
-            eprintln!("[partydeck] Failed to start kwin_wayland: {}", e);
             std::process::exit(1);
         }
     }

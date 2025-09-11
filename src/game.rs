@@ -192,15 +192,3 @@ pub fn find_game_by_handler_uid(uid: &str) -> Option<Game> {
         .find(|h| h.uid.eq_ignore_ascii_case(uid))
         .map(Game::HandlerRef)
 }
-
-pub fn list_all_handlers() {
-    let handlers = scan_handlers();
-    if handlers.is_empty() {
-        println!("[partydeck] No handlers found");
-    } else {
-        println!("[partydeck] Available handlers:");
-        for handler in handlers {
-            println!("  - {} ({})", handler.uid, handler.display());
-        }
-    }
-}
