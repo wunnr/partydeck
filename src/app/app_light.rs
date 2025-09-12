@@ -1,7 +1,8 @@
 use std::thread::sleep;
 
 use super::config::*;
-use crate::game::*;
+use crate::cli::{CliArgs, LaunchMode, list_all_devices, list_all_handlers};
+use crate::game::{Game, Executable, find_game_by_handler_uid};
 use crate::input::*;
 use crate::instance::*;
 use crate::launch::launch_game;
@@ -9,6 +10,7 @@ use crate::monitor::Monitor;
 use crate::util::*;
 
 use std::path::PathBuf;
+use std::error::Error;
 
 use eframe::egui::RichText;
 use eframe::egui::{self, Ui};
@@ -76,6 +78,90 @@ impl LightPartyApp {
             loading_since: None,
             task: None,
             auto_launch_pending: auto_launch,
+        }
+    }
+
+    pub fn from_cli_args(
+        cli_args: CliArgs,
+        monitors: Vec<Monitor>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let game = match &cli_args.mode {
+            LaunchMode::Handler(uid) => {
+                match find_game_by_handler_uid(uid) {
+                    Some(g) => g,
+                    None => {
+                        eprintln!("[partydeck] Error: Handler with UID '{}' not found", uid);
+                        eprintln!("\nAvailable handlers:");
+                        list_all_handlers();
+                        return Err(format!("Handler '{}' not found", uid).into());
+                    }
+                }
+            }
+            LaunchMode::Executable(exec, args) => {
+                Game::ExecRef(Executable::new(PathBuf::from(exec), args.clone()))
+            }
+            LaunchMode::Gui => {
+                return Err("GUI mode does not specify a game".into());
+            }
+        };
+
+        let cfg = load_cfg();
+        let input_devices = scan_input_devices(&cfg.pad_filter_type);
+
+        if cli_args.players.is_empty() && !cli_args.auto_launch {
+            println!("\nNo players specified. Available devices:");
+            list_all_devices(&input_devices);
+            println!("\nUse --player to specify players or see --help for usage");
+        }
+
+        // Build instances if players were specified
+        if !cli_args.players.is_empty() {
+            Self::from_cli_with_players(game, cli_args, monitors, input_devices)
+        } else {
+            // No players specified - start in manual configuration mode
+            let (exec, args) = match game {
+                Game::ExecRef(ref e) => (e.path().to_string_lossy().to_string(), e.args.clone()),
+                Game::HandlerRef(ref h) => (h.uid.clone(), String::new()),
+            };
+            Ok(Self::new(exec, args, monitors))
+        }
+    }
+
+    fn from_cli_with_players(
+        game: Game,
+        cli_args: CliArgs,
+        monitors: Vec<Monitor>,
+        input_devices: Vec<InputDevice>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let profiles = scan_profiles(true);
+        
+        match build_instance_from_specs(&cli_args.players, &input_devices, &profiles) {
+            Ok(instances) => {
+                println!("[partydeck] Created {} instances from CLI", instances.len());
+                for (i, instance) in instances.iter().enumerate() {
+                    println!(
+                        "  Instance {}: Profile '{}', {} devices, monitor {}",
+                        i + 1,
+                        instance.profname,
+                        instance.devices.len(),
+                        instance.monitor
+                    );
+                }
+                
+                Ok(Self::new_with_instances(
+                    game,
+                    instances,
+                    monitors,
+                    cli_args.auto_launch,
+                ))
+            }
+            Err(e) => {
+                eprintln!("[partydeck] Error building instances: {}", e);
+                eprintln!("\nAvailable devices:");
+                list_all_devices(&input_devices);
+                eprintln!("\nCheck your device specifications or use --help for usage");
+                Err(e.into())
+            }
         }
     }
 }

@@ -9,15 +9,11 @@ mod monitor;
 mod paths;
 mod util;
 
-use crate::app::{PartyApp, LightPartyApp, load_cfg};
-use crate::cli::{parse_args, list_all_devices, list_all_handlers, LaunchMode};
-use crate::instance::build_instance_from_specs;
-use crate::game::{Game, find_game_by_handler_uid, Executable};
-use crate::input::{scan_input_devices};
-use crate::monitor::get_monitors_sdl;
+use crate::app::*;
+use crate::cli::{parse_args, LaunchMode};
+use crate::monitor::*;
 use crate::paths::PATH_PARTY;
-use crate::util::{scan_profiles, remove_guest_profiles};
-use std::path::PathBuf;
+use crate::util::*;
 
 fn main() -> eframe::Result {
     // Our sdl/multimonitor stuff essentially depends on us running through x11.
@@ -126,95 +122,15 @@ fn main() -> eframe::Result {
                 }
                 LaunchMode::Handler(_) | LaunchMode::Executable(_, _) => {
                     println!("[partydeck] Starting in CLI mode");
-                    create_cli_app(cli_args, monitors.clone())
+                    match LightPartyApp::from_cli_args(cli_args, monitors.clone()) {
+                        Ok(app) => Box::new(app),
+                        Err(e) => {
+                            eprintln!("[partydeck] Failed to create app: {}", e);
+                            std::process::exit(1);
+                        }
+                    }
                 }
             })
         }),
     )
-}
-
-fn create_cli_app(
-    cli_args: cli::CliArgs, 
-    monitors: Vec<crate::monitor::Monitor>
-) -> Box<dyn eframe::App> {
-    let game = match &cli_args.mode {
-        LaunchMode::Handler(uid) => {
-            match find_game_by_handler_uid(uid) {
-                Some(g) => g,
-                None => {
-                    eprintln!("[partydeck] Error: Handler with UID '{}' not found", uid);
-                    eprintln!("\nAvailable handlers:");
-                    list_all_handlers();
-                    std::process::exit(1);
-                }
-            }
-        }
-        LaunchMode::Executable(exec, args) => {
-            Game::ExecRef(Executable::new(PathBuf::from(exec), args.clone()))
-        }
-        LaunchMode::Gui => {
-            eprintln!("[partydeck] Error: GUI mode does not specify a game");
-            std::process::exit(1);
-        }
-    };
-    
-    let cfg = load_cfg();
-    let input_devices = scan_input_devices(&cfg.pad_filter_type);
-    
-    // List devices if no players specified and not auto launching
-    if cli_args.players.is_empty() && !cli_args.auto_launch {
-        println!("\nNo players specified. Available devices:");
-        list_all_devices(&input_devices);
-        println!("\nUse --player to specify players or see --help for usage");
-    }
-    
-    // Build instances if players were specified
-    if !cli_args.players.is_empty() {
-        create_cli_app_with_players(game, cli_args, monitors, input_devices)
-    } else {
-        // No players specified - start in manual configuration mode
-        let (exec, args) = match game {
-            Game::ExecRef(ref e) => (e.path().to_string_lossy().to_string(), e.args.clone()),
-            Game::HandlerRef(ref h) => (h.uid.clone(), String::new()),
-        };
-        Box::<LightPartyApp>::new(LightPartyApp::new(exec, args, monitors))
-    }
-}
-
-fn create_cli_app_with_players(
-    game: Game,
-    cli_args: cli::CliArgs,
-    monitors: Vec<crate::monitor::Monitor>,
-    input_devices: Vec<crate::input::InputDevice>,
-) -> Box<dyn eframe::App> {
-    let profiles = scan_profiles(true);
-    
-    match build_instance_from_specs(&cli_args.players, &input_devices, &profiles) {
-        Ok(instances) => {
-            println!("[partydeck] Created {} instances from CLI", instances.len());
-            for (i, instance) in instances.iter().enumerate() {
-                println!(
-                    "  Instance {}: Profile '{}', {} devices, monitor {}",
-                    i + 1,
-                    instance.profname,
-                    instance.devices.len(),
-                    instance.monitor
-                );
-            }
-            
-            Box::<LightPartyApp>::new(LightPartyApp::new_with_instances(
-                game,
-                instances,
-                monitors,
-                cli_args.auto_launch,
-            ))
-        }
-        Err(e) => {
-            eprintln!("[partydeck] Error building instances: {}", e);
-            eprintln!("\nAvailable devices:");
-            list_all_devices(&input_devices);
-            eprintln!("\nCheck your device specifications or use --help for usage");
-            std::process::exit(1);
-        }
-    }
 }

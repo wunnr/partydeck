@@ -8,4 +8,3 @@ pub use app::PartyApp;
 pub use app_light::LightPartyApp;
 pub use config::PadFilterType;
 pub use config::PartyConfig;
-pub use config::load_cfg;
