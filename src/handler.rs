@@ -24,7 +24,7 @@ pub struct Handler {
     pub runtime: String,
     pub is32bit: bool,
     pub exec: String,
-    pub args: Vec<String>,
+    pub args: String,
     pub copy_instead_paths: Vec<String>,
     pub remove_paths: Vec<String>,
     pub dll_overrides: Vec<String>,
@@ -53,7 +53,7 @@ impl Handler {
             runtime: String::new(),
             is32bit: false,
             exec: String::new(),
-            args: Vec::new(),
+            args: String::new(),
             copy_instead_paths: Vec::new(),
             remove_paths: Vec::new(),
             dll_overrides: Vec::new(),
@@ -106,13 +106,10 @@ impl Handler {
                 .to_string()
                 .sanitize_path(),
             args: json["game.args"]
-                .as_array()
-                .map(|arr| {
-                    arr.iter()
-                        .map(|v| v.as_str().unwrap_or_default().to_string())
-                        .collect()
-                })
-                .unwrap_or_default(),
+                .as_str()
+                .unwrap_or_default()
+                .to_string()
+                .sanitize_path(),
             copy_instead_paths: json["game.copy_instead_paths"]
                 .as_array()
                 .map(|arr| {

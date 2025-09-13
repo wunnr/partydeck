@@ -275,7 +275,8 @@ pub fn launch_cmds(
 
         cmd.arg(format!("{gamedir}/{exec}"));
 
-        for arg in &h.args {
+        let split_args: Vec<String> = h.args.split_whitespace().map(|s| s.to_string()).collect();
+        for arg in split_args {
             let arg = match arg.as_str() {
                 "$GAMEDIR" => &gamedir,
                 "$PROFILE" => instance.profname.as_str(),
