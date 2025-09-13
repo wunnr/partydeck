@@ -1,6 +1,7 @@
 use crate::paths::*;
 use crate::util::*;
 
+use eframe::egui::{self, ImageSource};
 use serde_json::Value;
 use std::error::Error;
 use std::fs::File;
@@ -20,7 +21,6 @@ pub struct Handler {
     pub info: String,
 
     pub symlink_dir: bool,
-    pub win: bool,
     pub runtime: String,
     pub is32bit: bool,
     pub exec: String,
@@ -38,7 +38,36 @@ pub struct Handler {
 }
 
 impl Handler {
-    pub fn new(json_path: &PathBuf) -> Result<Self, Box<dyn Error>> {
+    pub fn new_from_uid(uid: &str) -> Self {
+        Self {
+            path_handler: PathBuf::new(),
+            img_paths: Vec::new(),
+
+            uid: uid.to_string(),
+            name: String::new(),
+            author: String::new(),
+            version: String::new(),
+            info: String::new(),
+
+            symlink_dir: false,
+            runtime: String::new(),
+            is32bit: false,
+            exec: String::new(),
+            args: Vec::new(),
+            copy_instead_paths: Vec::new(),
+            remove_paths: Vec::new(),
+            dll_overrides: Vec::new(),
+            pause_between_starts: None,
+
+            path_goldberg: String::new(),
+            steam_appid: None,
+            coldclient: false,
+
+            game_unique_paths: Vec::new(),
+        }
+    }
+
+    pub fn new_from_json(json_path: &PathBuf) -> Result<Self, Box<dyn Error>> {
         let file = File::open(json_path)?;
         let reader = BufReader::new(file);
         let json: Value = serde_json::from_reader(reader)?;
@@ -66,7 +95,6 @@ impl Handler {
                 .to_string(),
 
             symlink_dir: json["game.symlink_dir"].as_bool().unwrap_or_default(),
-            win: json["game.win"].as_bool().unwrap_or_default(),
             is32bit: json["game.32bit"].as_bool().unwrap_or_default(),
             runtime: json["game.runtime"]
                 .as_str()
@@ -144,12 +172,53 @@ impl Handler {
         Ok(handler)
     }
 
+    pub fn new_from_cli(exec: &str, args: &str) -> Self {
+        Self {
+            path_handler: PathBuf::new(),
+            img_paths: Vec::new(),
+
+            uid: "".to_string(),
+            name: String::new(),
+            author: String::new(),
+            version: String::new(),
+            info: String::new(),
+
+            symlink_dir: false,
+            runtime: String::new(),
+            is32bit: false,
+            exec: exec.to_string(),
+            args: args.split_whitespace().map(|s| s.to_string()).collect(),
+            copy_instead_paths: Vec::new(),
+            remove_paths: Vec::new(),
+            dll_overrides: Vec::new(),
+            pause_between_starts: None,
+
+            path_goldberg: String::new(),
+            steam_appid: None,
+            coldclient: false,
+
+            game_unique_paths: Vec::new(),
+        }
+    }
+
+    pub fn icon(&self) -> ImageSource<'_> {
+        if self.path_handler.join("icon.png").exists() {
+            format!("file://{}/icon.png", self.path_handler.display()).into()
+        } else {
+            egui::include_image!("../res/executable_icon.png")
+        }
+    }
+
     pub fn display(&self) -> &str {
         if self.name.is_empty() {
             self.uid.as_str()
         } else {
             self.name.as_str()
         }
+    }
+
+    pub fn win(&self) -> bool {
+        self.exec.ends_with(".exe") || self.exec.ends_with(".bat")
     }
 
     fn get_imgs(&self) -> Vec<PathBuf> {
@@ -174,6 +243,12 @@ impl Handler {
 
         out.sort();
         out
+    }
+
+    pub fn remove_dir(&self) -> Result<(), Box<dyn Error>> {
+        std::fs::remove_dir_all(self.path_handler.clone())?;
+
+        Ok(())
     }
 }
 
@@ -202,7 +277,7 @@ pub fn scan_handlers() -> Vec<Handler> {
         if !json_path.exists() {
             continue;
         }
-        if let Ok(handler) = Handler::new(&json_path) {
+        if let Ok(handler) = Handler::new_from_json(&json_path) {
             out.push(handler);
         }
     }
@@ -310,7 +385,7 @@ pub fn create_symlink_folder(h: &Handler) -> Result<(), Box<dyn Error>> {
         }
 
         let mut src = PATH_RES.clone();
-        src = match &h.win {
+        src = match &h.win() {
             true => src.join("goldberg/win"),
             false => src.join("goldberg/linux"),
         };
@@ -322,7 +397,7 @@ pub fn create_symlink_folder(h: &Handler) -> Result<(), Box<dyn Error>> {
         copy_dir_recursive(&src, &dest, false, true)?;
 
         let path_steamdll = path_root.join(&h.path_goldberg);
-        let steamdll = match &h.win {
+        let steamdll = match &h.win() {
             true => match &h.is32bit {
                 true => path_steamdll.join("steam_api.dll"),
                 false => path_steamdll.join("steam_api64.dll"),

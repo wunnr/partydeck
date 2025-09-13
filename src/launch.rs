@@ -2,28 +2,20 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::app::PartyConfig;
-use crate::game::Game;
 use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
-use crate::launch::Game::{ExecRef, HandlerRef};
 use crate::paths::*;
 use crate::util::*;
 
 pub fn launch_game(
-    game: &Game,
+    h: &Handler,
     input_devices: &[DeviceInfo],
     instances: &Vec<Instance>,
     cfg: &PartyConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if let HandlerRef(h) = game {
-        for instance in instances {
-            create_profile(instance.profname.as_str())?;
-            create_gamesave(instance.profname.as_str(), &h)?;
-        }
-        if h.symlink_dir {
-            create_symlink_folder(&h)?;
-        }
+    if h.symlink_dir {
+        create_symlink_folder(&h)?;
     }
 
     println!("\n[partydeck] Instances:");
@@ -34,7 +26,7 @@ pub fn launch_game(
         );
     }
 
-    let new_cmds = launch_cmds(game, input_devices, instances, cfg)?;
+    let new_cmds = launch_cmds(h, input_devices, instances, cfg)?;
     print_launch_cmds(&new_cmds);
 
     if cfg.enable_kwin_script {
@@ -49,13 +41,11 @@ pub fn launch_game(
 
     let mut handles = Vec::new();
 
-    let mut sleep_time = match game.win() {
+    let mut sleep_time = match h.win() {
         true => 6.0,
         false => 0.5,
     };
-    if let HandlerRef(h) = game
-        && let Some(f) = h.pause_between_starts
-    {
+    if let Some(f) = h.pause_between_starts {
         sleep_time = f;
     }
 
@@ -84,7 +74,7 @@ pub fn launch_game(
 }
 
 pub fn launch_cmds(
-    game: &Game,
+    h: &Handler,
     input_devices: &[DeviceInfo],
     instances: &Vec<Instance>,
     cfg: &PartyConfig,
@@ -94,41 +84,23 @@ pub fn launch_cmds(
     let party = PATH_PARTY.display();
     let steam = PATH_STEAM.display();
 
-    let gamedir = match game {
-        ExecRef(e) => &format!(
-            "{}",
-            e.path()
-                .parent()
-                .ok_or_else(|| "Invalid path")?
-                .to_string_lossy()
-        ),
-        HandlerRef(h) => match h.symlink_dir {
-            true => &format!("{party}/gamesyms/{}", h.uid),
-            false => &get_rootpath_handler(&h)?,
-        },
+    let gamedir = match h.symlink_dir {
+        true => &format!("{party}/gamesyms/{}", h.uid),
+        false => &get_rootpath_handler(&h)?,
     };
-
-    let win = game.win();
 
     let gamescope = match cfg.kbm_support {
         true => &format!("{}", BIN_GSC_KBM.to_string_lossy()),
         false => "gamescope",
     };
 
-    let exec = match game {
-        ExecRef(e) => &e.filename(),
-        HandlerRef(h) => h.exec.as_str(),
-    };
+    let exec = h.exec.as_str();
 
     if !PathBuf::from(gamedir).join(exec).exists() {
         return Err(format!("Executable not found: {gamedir}/{exec}").into());
     }
 
-    let runtime = if let HandlerRef(h) = game {
-        h.runtime.as_str()
-    } else {
-        ""
-    };
+    let runtime = h.runtime.as_str();
 
     if (runtime == "scout"
         && !PATH_STEAM
@@ -148,10 +120,7 @@ pub fn launch_cmds(
 
     for (i, instance) in instances.iter().enumerate() {
         let path_prof = &format!("{party}/profiles/{}", instance.profname.as_str());
-        let path_save = match game {
-            ExecRef(_) => "",
-            HandlerRef(h) => &format!("{path_prof}/saves/{}", h.uid.as_str()),
-        };
+        let path_save = &format!("{path_prof}/saves/{}", h.uid.as_str());
         let path_pfx = match cfg.proton_separate_pfxs {
             true => &format!("{party}/pfx{}", i + 1),
             false => &format!("{party}/pfx"),
@@ -164,18 +133,15 @@ pub fn launch_cmds(
         cmd.env("SDL_JOYSTICK_HIDAPI", "0");
         cmd.env("ENABLE_GAMESCOPE_WSI", "0");
         cmd.env("PROTON_DISABLE_HIDRAW", "1");
-        if cfg.force_sdl && !win {
-            let mut path_sdl =
-                "/ubuntu12_32/steam-runtime/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0";
-            if let HandlerRef(h) = game {
-                if h.is32bit {
-                    path_sdl = "/ubuntu12_32/steam-runtime/usr/lib/i386-linux-gnu/libSDL2-2.0.so.0";
-                }
+        if cfg.force_sdl && !h.win() {
+            let path_sdl = match h.is32bit {
+                true => "/ubuntu12_32/steam-runtime/usr/lib/i386-linux-gnu/libSDL2-2.0.so.0",
+                false => "/ubuntu12_32/steam-runtime/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0",
             };
 
             cmd.env("SDL_DYNAMIC_API", &format!("{steam}/{path_sdl}"));
         }
-        if win {
+        if h.win() {
             let protonpath = match cfg.proton_version.is_empty() {
                 true => "GE-Proton",
                 false => cfg.proton_version.as_str(),
@@ -185,19 +151,17 @@ pub fn launch_cmds(
             cmd.env("PROTON_VERB", "run");
             cmd.env("PROTONPATH", &protonpath);
 
-            if let HandlerRef(h) = game {
-                if !h.dll_overrides.is_empty() {
-                    let mut overrides = String::new();
-                    for dll in &h.dll_overrides {
-                        overrides.push_str(&format!("{dll},"));
-                    }
-                    overrides.push_str("=n,b\" ");
+            if !h.dll_overrides.is_empty() {
+                let mut overrides = String::new();
+                for dll in &h.dll_overrides {
+                    overrides.push_str(&format!("{dll},"));
+                }
+                overrides.push_str("=n,b\" ");
 
-                    cmd.env("WINEDLLOVERRIDES", &overrides);
-                }
-                if h.coldclient {
-                    cmd.env("PROTON_DISABLE_LSTEAMCLIENT", "1");
-                }
+                cmd.env("WINEDLLOVERRIDES", &overrides);
+            }
+            if h.coldclient {
+                cmd.env("PROTON_DISABLE_LSTEAMCLIENT", "1");
             }
         }
 
@@ -255,7 +219,7 @@ pub fn launch_cmds(
                 cmd.args(["--bind", "/dev/null", path]);
             }
         }
-        if win {
+        if h.win() {
             let path_appdata = format!("{path_pfx}/drive_c/users/steamuser/AppData");
             let path_documents = format!("{path_pfx}/drive_c/users/steamuser/Documents");
             cmd.args(["--bind", &format!("{path_prof}/AppData"), &path_appdata]);
@@ -268,29 +232,28 @@ pub fn launch_cmds(
             cmd.args(["--bind", &format!("{party}"), &format!("{party}")]);
             cmd.args(["--bind", &format!("{steam}"), &format!("{steam}")]);
         }
-        if let HandlerRef(h) = game {
-            for subdir in &h.game_unique_paths {
-                let prof_subdir = format!("{path_save}/{subdir}");
-                let game_subdir = format!("{gamedir}/{subdir}");
-                cmd.args(["--bind", &prof_subdir, &game_subdir]);
-            }
 
-            let path_goldberg = h.path_goldberg.as_str();
-            if !path_goldberg.is_empty() {
-                let path_profile_gse = format!("{path_prof}/steam");
-                let path_gse_linux = format!("{localshare}/GSE Saves");
-                let path_gse_win =
-                    format!("{path_pfx}/drive_c/users/steamuser/AppData/Roaming/GSE Saves");
-                if win {
-                    cmd.args(["--bind", &path_profile_gse, &path_gse_win]);
-                } else {
-                    cmd.args(["--bind", &path_profile_gse, &path_gse_linux]);
-                }
+        for subdir in &h.game_unique_paths {
+            let prof_subdir = format!("{path_save}/{subdir}");
+            let game_subdir = format!("{gamedir}/{subdir}");
+            cmd.args(["--bind", &prof_subdir, &game_subdir]);
+        }
+
+        let path_goldberg = h.path_goldberg.as_str();
+        if !path_goldberg.is_empty() {
+            let path_profile_gse = format!("{path_prof}/steam");
+            let path_gse_linux = format!("{localshare}/GSE Saves");
+            let path_gse_win =
+                format!("{path_pfx}/drive_c/users/steamuser/AppData/Roaming/GSE Saves");
+            if h.win() {
+                cmd.args(["--bind", &path_profile_gse, &path_gse_win]);
+            } else {
+                cmd.args(["--bind", &path_profile_gse, &path_gse_linux]);
             }
         }
 
         // Runtime
-        if win {
+        if h.win() {
             cmd.arg(format!("{}", BIN_UMU_RUN.to_string_lossy()));
         } else {
             match runtime {
@@ -312,18 +275,16 @@ pub fn launch_cmds(
 
         cmd.arg(format!("{gamedir}/{exec}"));
 
-        if let HandlerRef(h) = game {
-            for arg in &h.args {
-                let arg = match arg.as_str() {
-                    "$GAMEDIR" => &gamedir,
-                    "$PROFILE" => instance.profname.as_str(),
-                    "$WIDTH" => &format!("{}", instance.width),
-                    "$HEIGHT" => &format!("{}", instance.height),
-                    "$WIDTHXHEIGHT" => &format!("{}x{}", instance.width, instance.height),
-                    _ => &arg.sanitize_path(),
-                };
-                cmd.arg(arg);
-            }
+        for arg in &h.args {
+            let arg = match arg.as_str() {
+                "$GAMEDIR" => &gamedir,
+                "$PROFILE" => instance.profname.as_str(),
+                "$WIDTH" => &format!("{}", instance.width),
+                "$HEIGHT" => &format!("{}", instance.height),
+                "$WIDTHXHEIGHT" => &format!("{}x{}", instance.width, instance.height),
+                _ => &arg.sanitize_path(),
+            };
+            cmd.arg(arg);
         }
     }
 

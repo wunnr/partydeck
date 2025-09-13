@@ -1,7 +1,7 @@
 use std::thread::sleep;
 
 use super::config::*;
-use crate::game::*;
+use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::launch::launch_game;
@@ -28,7 +28,7 @@ pub struct LightPartyApp {
     pub input_devices: Vec<InputDevice>,
     pub instances: Vec<Instance>,
     pub instance_add_dev: Option<usize>,
-    pub game: Game,
+    pub handler: Handler,
 
     pub loading_msg: Option<String>,
     pub loading_since: Option<std::time::Instant>,
@@ -49,8 +49,7 @@ impl LightPartyApp {
             input_devices,
             instances: Vec::new(),
             instance_add_dev: None,
-            // Placeholder, user should define this with program args
-            game: Game::ExecRef(Executable::new(PathBuf::from(exec), execargs)),
+            handler: Handler::new_from_cli(&exec, &execargs),
             loading_msg: None,
             loading_since: None,
             task: None,
@@ -298,7 +297,7 @@ impl LightPartyApp {
             set_instance_resolutions(&mut self.instances, &self.monitors[0], &self.options);
         }
 
-        let game = self.game.to_owned();
+        let h = self.handler.to_owned();
         let instances = self.instances.clone();
         let dev_infos: Vec<DeviceInfo> = self.input_devices.iter().map(|p| p.info()).collect();
 
@@ -309,7 +308,7 @@ impl LightPartyApp {
             "Launching...\n\nDon't press any buttons or move any analog sticks or mice.",
             move || {
                 sleep(std::time::Duration::from_secs(2));
-                if let Err(err) = launch_game(&game, &dev_infos, &instances, &cfg) {
+                if let Err(err) = launch_game(&h, &dev_infos, &instances, &cfg) {
                     println!("[partydeck] Error: {}", err);
                     msg("Launch Error", &format!("{err}"));
                 }

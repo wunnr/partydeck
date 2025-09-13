@@ -1,7 +1,8 @@
+use dialog::DialogBox;
 use std::thread::sleep;
 
 use super::config::*;
-use crate::game::*;
+use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::launch::launch_game;
@@ -15,6 +16,7 @@ pub enum MenuPage {
     Home,
     Settings,
     Profiles,
+    EditHandler,
     Game,
     Instances,
 }
@@ -36,8 +38,9 @@ pub struct PartyApp {
     pub input_devices: Vec<InputDevice>,
     pub instances: Vec<Instance>,
     pub instance_add_dev: Option<usize>,
-    pub games: Vec<Game>,
-    pub selected_game: usize,
+    pub handlers: Vec<Handler>,
+    pub selected_handler: usize,
+    pub handler_edit: Option<Handler>,
     pub profiles: Vec<String>,
 
     pub loading_msg: Option<String>,
@@ -46,9 +49,9 @@ pub struct PartyApp {
     pub task: Option<std::thread::JoinHandle<()>>,
 }
 
-macro_rules! cur_game {
+macro_rules! cur_handler {
     ($self:expr) => {
-        &$self.games[$self.selected_game]
+        &$self.handlers[$self.selected_handler]
     };
 }
 
@@ -66,8 +69,9 @@ impl PartyApp {
             input_devices,
             instances: Vec::new(),
             instance_add_dev: None,
-            games: scan_all_games(),
-            selected_game: 0,
+            handlers: scan_handlers(),
+            selected_handler: 0,
+            handler_edit: None,
             profiles: Vec::new(),
             loading_msg: None,
             loading_since: None,
@@ -129,6 +133,7 @@ impl eframe::App for PartyApp {
                 MenuPage::Home => self.display_page_main(ui),
                 MenuPage::Settings => self.display_page_settings(ui),
                 MenuPage::Profiles => self.display_page_profiles(ui),
+                MenuPage::EditHandler => self.display_page_edit_handler(ui),
                 MenuPage::Game => self.display_page_game(ui),
                 MenuPage::Instances => self.display_page_instances(ui),
             }
@@ -181,6 +186,26 @@ impl PartyApp {
         self.loading_msg = Some(msg.to_string());
         self.loading_since = Some(std::time::Instant::now());
         self.task = Some(std::thread::spawn(f));
+    }
+
+    pub fn add_handler(&mut self) -> Result<(), String> {
+        if let Some(uid) = dialog::Input::new("Enter ID for new handler (must be alphanumeric):")
+            .title("New Handler")
+            .show()
+            .expect("Could not display dialog box")
+        {
+            if uid.is_empty() {
+                return Err("ID cannot be empty".to_string());
+            } else if !uid.chars().all(char::is_alphanumeric) {
+                return Err("ID must be alphanumeric".to_string());
+            } else {
+                self.handler_edit = Some(Handler::new_from_uid(&uid));
+                self.cur_page = MenuPage::EditHandler;
+                return Ok(());
+            }
+        }
+
+        Err("Error opening dialog box".to_string())
     }
 
     fn handle_gamepad_gui(&mut self, raw_input: &mut egui::RawInput) {
@@ -376,7 +401,7 @@ impl PartyApp {
         }
         set_instance_names(&mut self.instances, &self.profiles);
 
-        let game = cur_game!(self).to_owned();
+        let handler = cur_handler!(self).to_owned();
         let instances = self.instances.clone();
         let dev_infos: Vec<DeviceInfo> = self.input_devices.iter().map(|p| p.info()).collect();
 
@@ -388,7 +413,7 @@ impl PartyApp {
             "Launching...\n\nDon't press any buttons or move any analog sticks or mice.",
             move || {
                 sleep(std::time::Duration::from_secs(2));
-                if let Err(err) = launch_game(&game, &dev_infos, &instances, &cfg) {
+                if let Err(err) = launch_game(&handler, &dev_infos, &instances, &cfg) {
                     println!("[partydeck] Error: {}", err);
                     msg("Launch Error", &format!("{err}"));
                 }
