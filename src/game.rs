@@ -40,21 +40,12 @@ impl Executable {
     }
 }
 
+#[derive(Clone)]
 pub enum Game {
     ExecRef(Executable),
     HandlerRef(Handler),
 }
 
-impl ToOwned for Game {
-    type Owned = Self;
-
-    fn to_owned(&self) -> Self::Owned {
-        match self {
-            Game::ExecRef(e) => Game::ExecRef(e.clone()),
-            Game::HandlerRef(handler) => Game::HandlerRef(handler.clone()),
-        }
-    }
-}
 impl Game {
     pub fn name(&self) -> &str {
         match self {
@@ -192,4 +183,12 @@ pub fn remove_game(game: &Game) -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+pub fn find_game_by_handler_uid(uid: &str) -> Option<Game> {
+    let handlers = scan_handlers();
+    handlers
+        .into_iter()
+        .find(|h| h.uid.eq_ignore_ascii_case(uid))
+        .map(Game::HandlerRef)
 }

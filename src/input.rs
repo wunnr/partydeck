@@ -132,6 +132,27 @@ impl InputDevice {
         }
         btn
     }
+
+    pub fn matches(&self, identifier: &str) -> bool {
+        let identifier = identifier.trim();
+        
+        if self.path == identifier {
+            return true;
+        }
+        
+        // Match by path without /dev/input/ prefix (event3, event10)
+        if let Some(path_end) = self.path.split('/').last() {
+            if path_end == identifier && identifier.starts_with("event") {
+                return true;
+            }
+        }
+        
+        let normalized_id = identifier.to_lowercase();
+        let device_name = self.name().to_lowercase();
+        let fancy_name = self.fancyname().to_lowercase();
+        
+        device_name.contains(&normalized_id) || fancy_name.contains(&normalized_id)
+    }
 }
 
 pub fn scan_input_devices(filter: &PadFilterType) -> Vec<InputDevice> {
