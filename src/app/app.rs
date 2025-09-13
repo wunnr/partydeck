@@ -238,7 +238,13 @@ impl PartyApp {
             }
             match pad.poll() {
                 Some(PadButton::ABtn) => key = Some(Key::Enter),
-                Some(PadButton::BBtn) => self.cur_page = MenuPage::Home,
+                Some(PadButton::BBtn) => {
+                    if self.handler_lite.is_some() {
+                        self.cur_page = MenuPage::Instances;
+                    } else {
+                        self.cur_page = MenuPage::Home;
+                    }
+                }
                 Some(PadButton::XBtn) => {
                     self.profiles = scan_profiles(false);
                     self.cur_page = MenuPage::Profiles;
