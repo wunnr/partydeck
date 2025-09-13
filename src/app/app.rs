@@ -39,10 +39,13 @@ pub struct PartyApp {
     pub input_devices: Vec<InputDevice>,
     pub instances: Vec<Instance>,
     pub instance_add_dev: Option<usize>,
-    pub handlers: Vec<Handler>,
-    pub selected_handler: usize,
+
     pub handler_edit: Option<Handler>,
     pub profiles: Vec<String>,
+
+    pub handlers: Vec<Handler>,
+    pub selected_handler: usize,
+    pub handler_lite: Option<Handler>,
 
     pub loading_msg: Option<String>,
     pub loading_since: Option<std::time::Instant>,
@@ -57,22 +60,32 @@ macro_rules! cur_handler {
 }
 
 impl PartyApp {
-    pub fn new(monitors: Vec<Monitor>) -> Self {
+    pub fn new(monitors: Vec<Monitor>, handler_lite: Option<Handler>) -> Self {
         let options = load_cfg();
         let input_devices = scan_input_devices(&options.pad_filter_type);
+        let handlers = match handler_lite {
+            Some(_) => Vec::new(),
+            None => scan_handlers(),
+        };
+        let cur_page = match handler_lite {
+            Some(_) => MenuPage::Instances,
+            None => MenuPage::Home,
+        };
+
         Self {
             needs_update: check_for_partydeck_update(),
             options,
-            cur_page: MenuPage::Home,
+            cur_page,
             settings_page: SettingsPage::General,
             infotext: String::new(),
             monitors,
             input_devices,
             instances: Vec::new(),
             instance_add_dev: None,
-            handlers: scan_handlers(),
+            handlers,
             selected_handler: 0,
             handler_edit: None,
+            handler_lite,
             profiles: scan_profiles(false),
             loading_msg: None,
             loading_since: None,
@@ -100,15 +113,17 @@ impl eframe::App for PartyApp {
             self.display_panel_top(ui);
         });
 
-        egui::SidePanel::left("games_panel")
-            .resizable(false)
-            .exact_width(200.0)
-            .show(ctx, |ui| {
-                if self.task.is_some() {
-                    ui.disable();
-                }
-                self.display_panel_left(ui);
-            });
+        if !self.is_lite() {
+            egui::SidePanel::left("games_panel")
+                .resizable(false)
+                .exact_width(200.0)
+                .show(ctx, |ui| {
+                    if self.task.is_some() {
+                        ui.disable();
+                    }
+                    self.display_panel_left(ui);
+                });
+        }
 
         if self.cur_page == MenuPage::Instances {
             egui::SidePanel::right("devices_panel")
@@ -187,6 +202,10 @@ impl PartyApp {
         self.loading_msg = Some(msg.to_string());
         self.loading_since = Some(std::time::Instant::now());
         self.task = Some(std::thread::spawn(f));
+    }
+
+    pub fn is_lite(&self) -> bool {
+        self.handler_lite.is_some()
     }
 
     pub fn add_handler(&mut self) -> Result<(), String> {
@@ -404,7 +423,12 @@ impl PartyApp {
         }
         set_instance_names(&mut self.instances, &self.profiles);
 
-        let handler = cur_handler!(self).to_owned();
+        let handler = if let Some(h) = self.handler_lite.clone() {
+            h
+        } else {
+            cur_handler!(self).to_owned()
+        };
+
         let instances = self.instances.clone();
         let dev_infos: Vec<DeviceInfo> = self.input_devices.iter().map(|p| p.info()).collect();
 

@@ -18,7 +18,16 @@ impl PartyApp {
             ui.add(
                 egui::Image::new(egui::include_image!("../../res/BTN_EAST.png")).max_height(12.0),
             );
-            ui.selectable_value(&mut self.cur_page, MenuPage::Home, "Home");
+
+            let hometext = match self.is_lite() {
+                true => "Play",
+                false => "Home",
+            };
+            let homepage = match self.is_lite() {
+                true => MenuPage::Instances,
+                false => MenuPage::Home,
+            };
+            ui.selectable_value(&mut self.cur_page, homepage, hometext);
             ui.add(
                 egui::Image::new(egui::include_image!("../../res/BTN_NORTH.png")).max_height(12.0),
             );

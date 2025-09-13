@@ -8,6 +8,7 @@ mod paths;
 mod util;
 
 use crate::app::*;
+use crate::handler::Handler;
 use crate::monitor::*;
 use crate::paths::PATH_PARTY;
 use crate::util::*;
@@ -86,6 +87,12 @@ fn main() -> eframe::Result {
         }
     }
 
+    let handler_lite = if !exec.is_empty() {
+        Some(Handler::new_from_cli(&exec, &execargs))
+    } else {
+        None
+    };
+
     let fullscreen = std::env::args().any(|arg| arg == "--fullscreen");
 
     std::fs::create_dir_all(PATH_PARTY.join("gamesyms"))
@@ -108,16 +115,9 @@ fn main() -> eframe::Result {
         false => 1.3,
     };
 
-    let light = !exec.is_empty();
-
-    let win_width = match light {
-        true => 900.0,
-        false => 1080.0,
-    };
-
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
-            .with_inner_size([win_width, 540.0])
+            .with_inner_size([1080.0, 540.0])
             .with_min_inner_size([640.0, 360.0])
             .with_fullscreen(fullscreen)
             .with_icon(
@@ -136,12 +136,10 @@ fn main() -> eframe::Result {
             // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
             cc.egui_ctx.set_zoom_factor(scale);
-            Ok(match light {
-                true => {
-                    Box::<LightPartyApp>::new(LightPartyApp::new(exec, execargs, monitors.clone()))
-                }
-                false => Box::<PartyApp>::new(PartyApp::new(monitors.clone())),
-            })
+            Ok(Box::<PartyApp>::new(PartyApp::new(
+                monitors.clone(),
+                handler_lite,
+            )))
         }),
     )
 }
