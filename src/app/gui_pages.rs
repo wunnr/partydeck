@@ -1,6 +1,5 @@
 use super::app::{MenuPage, PartyApp, SettingsPage};
 use super::config::*;
-use crate::game::Game::*;
 use crate::input::*;
 use crate::paths::*;
 use crate::util::*;
@@ -9,9 +8,9 @@ use dialog::DialogBox;
 use eframe::egui::RichText;
 use eframe::egui::{self, Ui};
 
-macro_rules! cur_game {
+macro_rules! cur_handler {
     ($self:expr) => {
-        &$self.games[$self.selected_game]
+        &$self.handlers[$self.selected_handler]
     };
 }
 
@@ -101,13 +100,39 @@ impl PartyApp {
         }
     }
 
+    pub fn display_page_edit_handler(&mut self, ui: &mut Ui) {
+        let h = match &mut self.handler_edit {
+            Some(handler) => handler,
+            None => {
+                return;
+            }
+        };
+
+        ui.horizontal(|ui| {
+            ui.label("Architecture:");
+            ui.radio_value(&mut h.is32bit, false, "64-bit");
+            ui.radio_value(&mut h.is32bit, true, "32-bit");
+        });
+
+        if h.win() {
+            ui.horizontal(|ui| {
+                ui.label("Linux Runtime:");
+                ui.radio_value(&mut h.runtime, "".to_string(), "None");
+                ui.radio_value(&mut h.runtime, "scout".to_string(), "1.0 (scout)");
+                ui.radio_value(&mut h.runtime, "soldier".to_string(), "2.0 (soldier)");
+            });
+        }
+    }
+
     pub fn display_page_game(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            ui.image(cur_game!(self).icon());
-            ui.heading(cur_game!(self).name());
+            ui.image(cur_handler!(self).icon());
+            ui.heading(cur_handler!(self).display());
         });
 
         ui.separator();
+
+        let h = cur_handler!(self);
 
         ui.horizontal(|ui| {
             ui.add(
@@ -123,39 +148,36 @@ impl PartyApp {
                 self.instance_add_dev = None;
                 self.cur_page = MenuPage::Instances;
             }
-            if let HandlerRef(h) = cur_game!(self) {
-                ui.add(egui::Separator::default().vertical());
-                if h.win {
-                    ui.label(" Proton");
-                } else {
-                    ui.label("🐧 Native");
-                }
-                ui.add(egui::Separator::default().vertical());
-                ui.label(format!("Author: {}", h.author));
-                ui.add(egui::Separator::default().vertical());
-                ui.label(format!("Version: {}", h.version));
+
+            ui.add(egui::Separator::default().vertical());
+            if h.win() {
+                ui.label(" Proton");
+            } else {
+                ui.label("🐧 Native");
             }
+            ui.add(egui::Separator::default().vertical());
+            ui.label(format!("Author: {}", h.author));
+            ui.add(egui::Separator::default().vertical());
+            ui.label(format!("Version: {}", h.version));
         });
 
-        if let HandlerRef(h) = cur_game!(self) {
-            egui::ScrollArea::horizontal()
-                .max_width(f32::INFINITY)
-                .show(ui, |ui| {
-                    let available_height = ui.available_height();
-                    ui.horizontal(|ui| {
-                        for img in h.img_paths.iter() {
-                            ui.add(
-                                egui::Image::new(format!("file://{}", img.display()))
-                                    .fit_to_exact_size(egui::vec2(
-                                        available_height * 1.77,
-                                        available_height,
-                                    ))
-                                    .maintain_aspect_ratio(true),
-                            );
-                        }
-                    });
+        egui::ScrollArea::horizontal()
+            .max_width(f32::INFINITY)
+            .show(ui, |ui| {
+                let available_height = ui.available_height();
+                ui.horizontal(|ui| {
+                    for img in h.img_paths.iter() {
+                        ui.add(
+                            egui::Image::new(format!("file://{}", img.display()))
+                                .fit_to_exact_size(egui::vec2(
+                                    available_height * 1.77,
+                                    available_height,
+                                ))
+                                .maintain_aspect_ratio(true),
+                        );
+                    }
                 });
-        }
+            });
     }
 
     pub fn display_page_instances(&mut self, ui: &mut Ui) {
@@ -208,15 +230,13 @@ impl PartyApp {
             ui.horizontal(|ui| {
                 ui.label(format!("{}", i + 1));
 
-                if let HandlerRef(_) = cur_game!(self) {
-                    ui.label("👤");
-                    egui::ComboBox::from_id_salt(format!("{i}")).show_index(
-                        ui,
-                        &mut instance.profselection,
-                        self.profiles.len(),
-                        |i| self.profiles[i].clone(),
-                    );
-                }
+                ui.label("👤");
+                egui::ComboBox::from_id_salt(format!("{i}")).show_index(
+                    ui,
+                    &mut instance.profselection,
+                    self.profiles.len(),
+                    |i| self.profiles[i].clone(),
+                );
 
                 if self.options.gamescope_sdl_backend {
                     ui.label("🖵");
