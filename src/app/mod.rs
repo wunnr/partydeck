@@ -1,7 +1,7 @@
 mod app;
+mod app_pages;
+mod app_panels;
 mod config;
-mod gui_pages;
-mod gui_panels;
 
 pub use app::PartyApp;
 pub use config::PadFilterType;
