@@ -109,6 +109,21 @@ impl PartyApp {
         };
 
         ui.horizontal(|ui| {
+            ui.label("Game name:");
+            ui.add(egui::TextEdit::singleline(&mut h.name));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Executable path (relative to game directory):");
+            ui.add(egui::TextEdit::singleline(&mut h.exec));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Game arguments:");
+            ui.add(egui::TextEdit::singleline(&mut h.args));
+        });
+
+        ui.horizontal(|ui| {
             ui.label("Architecture:");
             ui.radio_value(&mut h.is32bit, false, "64-bit");
             ui.radio_value(&mut h.is32bit, true, "32-bit");

@@ -7,6 +7,7 @@ use crate::input::*;
 use crate::instance::*;
 use crate::launch::launch_game;
 use crate::monitor::Monitor;
+use crate::paths::*;
 use crate::util::*;
 
 use eframe::egui::{self, Key};
@@ -72,7 +73,7 @@ impl PartyApp {
             handlers: scan_handlers(),
             selected_handler: 0,
             handler_edit: None,
-            profiles: Vec::new(),
+            profiles: scan_profiles(false),
             loading_msg: None,
             loading_since: None,
             task: None,
@@ -198,6 +199,8 @@ impl PartyApp {
                 return Err("ID cannot be empty".to_string());
             } else if !uid.chars().all(char::is_alphanumeric) {
                 return Err("ID must be alphanumeric".to_string());
+            } else if PATH_PARTY.join("handlers").join(&uid).exists() {
+                return Err(format!("Handler with ID '{}' already exists", uid));
             } else {
                 self.handler_edit = Some(Handler::new_from_uid(&uid));
                 self.cur_page = MenuPage::EditHandler;

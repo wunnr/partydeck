@@ -73,7 +73,7 @@ impl PartyApp {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("➕").clicked() {
                     if let Err(e) = self.add_handler() {
-                        ui.label(format!("Error adding handler: {}", e));
+                        msg("Error adding handler", &e);
                     }
                 }
                 if ui.button("🔄").clicked() {
@@ -104,7 +104,11 @@ impl PartyApp {
                     _ => {}
                 }
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.label(&self.infotext);
+                    if self.cur_page == MenuPage::EditHandler && let Some(handler) = &mut self.handler_edit {
+                        ui.add(egui::TextEdit::multiline(&mut handler.info).hint_text("Put game info/instructions here"));
+                    } else {
+                        ui.label(&self.infotext);
+                    }
                 });
             });
     }
@@ -193,6 +197,11 @@ impl PartyApp {
                             {
                                 msg("Error", "Couldn't open handler folder!");
                             }
+                        }
+
+                        if ui.button("Edit Handler").clicked() {
+                            self.handler_edit = Some(h.clone());
+                            self.cur_page = MenuPage::EditHandler;
                         }
                     },
                 );
