@@ -96,6 +96,7 @@ pub fn launch_cmd(
     cmd.push_str("SDL_JOYSTICK_HIDAPI=0 ");
     cmd.push_str("ENABLE_GAMESCOPE_WSI=0 ");
     cmd.push_str("PROTON_DISABLE_HIDRAW=1 ");
+    cmd.push_str("SteamDeck=0 ");
 
     if cfg.force_sdl && !win {
         let mut path_sdl = "/ubuntu12_32/steam-runtime/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0";
