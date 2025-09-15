@@ -6,6 +6,8 @@ use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::paths::*;
+use crate::profiles::create_profile;
+use crate::remove_guest_profiles;
 use crate::util::*;
 
 pub fn launch_game(
@@ -14,12 +16,11 @@ pub fn launch_game(
     instances: &Vec<Instance>,
     cfg: &PartyConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if h.symlink_dir {
-        create_symlink_folder(&h)?;
-    }
-
     println!("\n[partydeck] Instances:");
     for instance in instances {
+        if instance.profname.starts_with(".") {
+            create_profile(&instance.profname)?;
+        }
         println!(
             "  - Profile: {}, Monitor: {}, Resolution: {}x{}",
             instance.profname, instance.monitor, instance.width, instance.height
@@ -79,29 +80,23 @@ pub fn launch_cmds(
     instances: &Vec<Instance>,
     cfg: &PartyConfig,
 ) -> Result<Vec<std::process::Command>, Box<dyn std::error::Error>> {
-    let home = PATH_HOME.display();
-    let localshare = PATH_LOCAL_SHARE.display();
-    let party = PATH_PARTY.display();
-    let steam = PATH_STEAM.display();
+    let home = PATH_HOME.to_string_lossy();
+    let localshare = PATH_LOCAL_SHARE.to_string_lossy();
+    let party = PATH_PARTY.to_string_lossy();
+    let steam = PATH_STEAM.to_string_lossy();
 
-    let gamedir = match h.symlink_dir {
-        true => &format!("{party}/gamesyms/{}", h.uid),
-        false => &get_rootpath_handler(&h)?,
-    };
-
+    let win = h.win();
+    let gamedir = h.get_game_rootpath()?;
+    let exec = h.exec.as_str();
+    let runtime = h.runtime.as_str();
     let gamescope = match cfg.kbm_support {
         true => &format!("{}", BIN_GSC_KBM.to_string_lossy()),
         false => "gamescope",
     };
 
-    let exec = h.exec.as_str();
-
-    if !PathBuf::from(gamedir).join(exec).exists() {
+    if !PathBuf::from(&gamedir).join(exec).exists() {
         return Err(format!("Executable not found: {gamedir}/{exec}").into());
     }
-
-    let runtime = h.runtime.as_str();
-
     if (runtime == "scout"
         && !PATH_STEAM
             .join("steamapps/common/SteamLinuxRuntime_soldier")
@@ -128,12 +123,12 @@ pub fn launch_cmds(
 
         let cmd = &mut cmds[i];
 
-        cmd.current_dir(gamedir);
+        cmd.current_dir(&gamedir);
 
         cmd.env("SDL_JOYSTICK_HIDAPI", "0");
         cmd.env("ENABLE_GAMESCOPE_WSI", "0");
         cmd.env("PROTON_DISABLE_HIDRAW", "1");
-        if cfg.force_sdl && !h.win() {
+        if cfg.force_sdl && !win {
             let path_sdl = match h.is32bit {
                 true => "/ubuntu12_32/steam-runtime/usr/lib/i386-linux-gnu/libSDL2-2.0.so.0",
                 false => "/ubuntu12_32/steam-runtime/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0",
@@ -141,7 +136,7 @@ pub fn launch_cmds(
 
             cmd.env("SDL_DYNAMIC_API", &format!("{steam}/{path_sdl}"));
         }
-        if h.win() {
+        if win {
             let protonpath = match cfg.proton_version.is_empty() {
                 true => "GE-Proton",
                 false => cfg.proton_version.as_str(),
@@ -160,9 +155,9 @@ pub fn launch_cmds(
 
                 cmd.env("WINEDLLOVERRIDES", &overrides);
             }
-            if h.coldclient {
-                cmd.env("PROTON_DISABLE_LSTEAMCLIENT", "1");
-            }
+            // if h.coldclient {
+            //     cmd.env("PROTON_DISABLE_LSTEAMCLIENT", "1");
+            // }
         }
 
         // Gamescope args
@@ -219,41 +214,50 @@ pub fn launch_cmds(
                 cmd.args(["--bind", "/dev/null", path]);
             }
         }
-        if h.win() {
-            let path_appdata = format!("{path_pfx}/drive_c/users/steamuser/AppData");
-            let path_documents = format!("{path_pfx}/drive_c/users/steamuser/Documents");
-            cmd.args(["--bind", &format!("{path_prof}/AppData"), &path_appdata]);
-            cmd.args(["--bind", &format!("{path_prof}/Documents"), &path_documents]);
+        if win {
+            let path_pfx_user = format!("{path_pfx}/drive_c/users/steamuser");
+            cmd.args(["--bind", &format!("{path_prof}/windata"), &path_pfx_user]);
         } else {
-            let path_localshare = format!("{localshare}");
-            let path_config = format!("{home}/.config");
-            cmd.args(["--bind", &format!("{path_prof}/share"), &path_localshare]);
-            cmd.args(["--bind", &format!("{path_prof}/config"), &path_config]);
-            cmd.args(["--bind", &format!("{party}"), &format!("{party}")]);
-            cmd.args(["--bind", &format!("{steam}"), &format!("{steam}")]);
+            let path_prof_home = format!("{path_prof}/home");
+            let path_prof_work = format!("{path_prof}/work");
+            cmd.args(["--overlay-src", &home]);
+            cmd.args(["--overlay", &path_prof_home, &path_prof_work, &home]);
         }
 
         for subdir in &h.game_unique_paths {
-            let prof_subdir = format!("{path_save}/{subdir}");
-            let game_subdir = format!("{gamedir}/{subdir}");
-            cmd.args(["--bind", &prof_subdir, &game_subdir]);
+            let path_prof_subdir = format!("{path_prof}/{subdir}");
+            let path_game_subdir = format!("{gamedir}/{subdir}");
+            cmd.args(["--bind", &path_prof_subdir, &path_game_subdir]);
         }
 
-        let path_goldberg = h.path_goldberg.as_str();
-        if !path_goldberg.is_empty() {
-            let path_profile_gse = format!("{path_prof}/steam");
-            let path_gse_linux = format!("{localshare}/GSE Saves");
-            let path_gse_win =
-                format!("{path_pfx}/drive_c/users/steamuser/AppData/Roaming/GSE Saves");
-            if h.win() {
-                cmd.args(["--bind", &path_profile_gse, &path_gse_win]);
-            } else {
-                cmd.args(["--bind", &path_profile_gse, &path_gse_linux]);
+        if h.use_goldberg {
+            if let Some(dest) = h.locate_steamapi_path() {
+                let src = match &h.win() {
+                    true => match &h.is32bit {
+                        true => PATH_RES.join("goldberg/steam_api.dll"),
+                        false => PATH_RES.join("goldberg/steam_api64.dll"),
+                    },
+                    false => match &h.is32bit {
+                        true => PATH_RES.join("goldberg/libsteam_api.so"),
+                        false => PATH_RES.join("goldberg/libsteam_api64.so"),
+                    },
+                };
+                cmd.args(["--bind", &src.to_string_lossy(), &dest.to_string_lossy()]);
             }
         }
 
+        let path_profile_gse = format!("{path_prof}/steam");
+        if win {
+            let path_gse_win =
+                format!("{path_pfx}/drive_c/users/steamuser/AppData/Roaming/GSE Saves");
+            cmd.args(["--bind", &path_profile_gse, &path_gse_win]);
+        } else {
+            let path_gse_linux = format!("{localshare}/GSE Saves");
+            cmd.args(["--bind", &path_profile_gse, &path_gse_linux]);
+        }
+
         // Runtime
-        if h.win() {
+        if win {
             cmd.arg(format!("{}", BIN_UMU_RUN.to_string_lossy()));
         } else {
             match runtime {
