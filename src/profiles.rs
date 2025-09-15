@@ -1,9 +1,9 @@
 use rand::prelude::*;
 use std::error::Error;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
-use crate::util::filesystem::copy_dir_recursive;
-use crate::{handler::Handler, paths::*};
+use crate::{handler::Handler, paths::*, util::copy_dir_recursive};
 
 // Makes a folder and sets up Goldberg Steam Emu profile for Steam games
 pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
@@ -15,13 +15,44 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
     let path_profile = PATH_PARTY.join(format!("profiles/{name}"));
     let path_steam = path_profile.join("steam/settings");
 
-    std::fs::create_dir_all(path_profile.join("AppData/Local"))?;
-    std::fs::create_dir_all(path_profile.join("AppData/LocalLow"))?;
-    std::fs::create_dir_all(path_profile.join("AppData/Roaming"))?;
-    std::fs::create_dir_all(path_profile.join("Documents"))?;
-    std::fs::create_dir_all(path_profile.join("share"))?;
-    std::fs::create_dir_all(path_profile.join("config"))?;
+    std::fs::create_dir_all(path_profile.join("work"))?;
+    std::fs::create_dir_all(path_profile.join("windata/AppData/Local"))?;
+    std::fs::create_dir_all(path_profile.join("windata/AppData/LocalLow"))?;
+    std::fs::create_dir_all(path_profile.join("windata/AppData/Roaming"))?;
+    std::fs::create_dir_all(path_profile.join("windata/Documents"))?;
+    std::fs::create_dir_all(path_profile.join("home/.local/share"))?;
+    std::fs::create_dir_all(path_profile.join("home/.config"))?;
     std::fs::create_dir_all(path_steam.clone())?;
+
+    // Set read/write permissions on all created directories
+    // #[cfg(unix)]
+    // {
+    //     use std::os::unix::fs::PermissionsExt;
+    //     let paths_to_fix = [
+    //         &path_profile,
+    //         &path_profile.join("work"),
+    //         &path_profile.join("windata"),
+    //         &path_profile.join("windata/AppData"),
+    //         &path_profile.join("windata/AppData/Local"),
+    //         &path_profile.join("windata/AppData/LocalLow"),
+    //         &path_profile.join("windata/AppData/Roaming"),
+    //         &path_profile.join("windata/Documents"),
+    //         &path_profile.join("home"),
+    //         &path_profile.join("home/.local"),
+    //         &path_profile.join("home/.local/share"),
+    //         &path_profile.join("home/.config"),
+    //         &path_profile.join("steam"),
+    //         &path_steam,
+    //     ];
+
+    //     for path in &paths_to_fix {
+    //         if path.exists() {
+    //             let mut perms = std::fs::metadata(path)?.permissions();
+    //             perms.set_mode(0o755);
+    //             std::fs::set_permissions(path, perms)?;
+    //         }
+    //     }
+    // }
 
     let steam_id = format!("{:017}", rand::rng().random_range(u32::MIN..u32::MAX));
     let usersettings = format!(
@@ -73,7 +104,7 @@ pub fn create_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Error>> {
             "[partydeck] {} handler has built-in save data, copying...",
             h.uid
         );
-        copy_dir_recursive(&copy_save_src, &path_gamesave, false, true)?;
+        copy_dir_recursive(&copy_save_src, &path_gamesave)?;
     }
 
     println!("[partydeck] Save data directories created successfully");
@@ -117,6 +148,13 @@ pub fn remove_guest_profiles() -> Result<(), Box<dyn Error>> {
         let name_str = name.to_string_lossy();
 
         if name_str.starts_with(".") {
+            let path = entry.path().join("work").join("work");
+            if path.exists() {
+                let mut perms = std::fs::metadata(&path)?.permissions();
+                perms.set_mode(0o777);
+                std::fs::set_permissions(&path, perms)?;
+            }
+
             std::fs::remove_dir_all(entry.path())?;
         }
     }
