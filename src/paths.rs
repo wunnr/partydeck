@@ -1,4 +1,3 @@
-use crate::util::get_rootpath;
 use std::env;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -42,7 +41,7 @@ pub static PATH_STEAM: LazyLock<PathBuf> = LazyLock::new(|| {
     {
         PATH_HOME.join(".var/app/com.valvesoftware.Steam/.steam/steam")
     } else {
-        PathBuf::from(get_rootpath("steam").unwrap())
+        PATH_HOME.join(".steam/steam")
     }
 });
 
