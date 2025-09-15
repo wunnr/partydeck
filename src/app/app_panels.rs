@@ -1,6 +1,7 @@
 use super::app::{MenuPage, PartyApp};
 use crate::handler::scan_handlers;
 use crate::input::*;
+use crate::profiles::scan_profiles;
 use crate::util::*;
 
 use eframe::egui::RichText;
