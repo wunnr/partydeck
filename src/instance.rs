@@ -1,6 +1,6 @@
-use crate::GUEST_NAMES;
 use crate::Monitor;
 use crate::app::PartyConfig;
+use crate::profiles::GUEST_NAMES;
 
 #[derive(Clone)]
 pub struct Instance {
