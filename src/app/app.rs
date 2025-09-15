@@ -8,6 +8,7 @@ use crate::instance::*;
 use crate::launch::launch_game;
 use crate::monitor::Monitor;
 use crate::paths::*;
+use crate::profiles::*;
 use crate::util::*;
 
 use eframe::egui::{self, Key};
@@ -29,6 +30,7 @@ pub enum SettingsPage {
 }
 
 pub struct PartyApp {
+    pub installed_steamapps: Vec<Option<steamlocate::App>>,
     pub needs_update: bool,
     pub options: PartyConfig,
     pub cur_page: MenuPage,
@@ -39,12 +41,11 @@ pub struct PartyApp {
     pub input_devices: Vec<InputDevice>,
     pub instances: Vec<Instance>,
     pub instance_add_dev: Option<usize>,
-
-    pub handler_edit: Option<Handler>,
     pub profiles: Vec<String>,
 
     pub handlers: Vec<Handler>,
     pub selected_handler: usize,
+    pub handler_edit: Option<Handler>,
     pub handler_lite: Option<Handler>,
 
     pub loading_msg: Option<String>,
@@ -73,6 +74,7 @@ impl PartyApp {
         };
 
         Self {
+            installed_steamapps: get_installed_steamapps(),
             needs_update: check_for_partydeck_update(),
             options,
             cur_page,
