@@ -5,13 +5,14 @@ mod instance;
 mod launch;
 mod monitor;
 mod paths;
+mod profiles;
 mod util;
 
 use crate::app::*;
 use crate::handler::Handler;
 use crate::monitor::*;
 use crate::paths::PATH_PARTY;
-use crate::util::*;
+use crate::profiles::remove_guest_profiles;
 
 fn main() -> eframe::Result {
     // Our sdl/multimonitor stuff essentially depends on us running through x11.
@@ -127,7 +128,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
 
-    println!("[partydeck] Starting eframe app...\n");
+    println!("[partydeck] Starting eframe app...");
 
     eframe::run_native(
         "PartyDeck",
