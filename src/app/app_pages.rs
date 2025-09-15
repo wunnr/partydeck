@@ -2,6 +2,7 @@ use super::app::{MenuPage, PartyApp, SettingsPage};
 use super::config::*;
 use crate::input::*;
 use crate::paths::*;
+use crate::profiles::*;
 use crate::util::*;
 
 use dialog::DialogBox;
@@ -109,9 +110,44 @@ impl PartyApp {
         };
 
         ui.horizontal(|ui| {
-            ui.label("Game name:");
+            ui.label("Name:");
             ui.add(egui::TextEdit::singleline(&mut h.name));
         });
+
+        ui.horizontal(|ui| {
+            ui.label("Author:");
+            ui.add(egui::TextEdit::singleline(&mut h.author));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Version:");
+            ui.add(egui::TextEdit::singleline(&mut h.version));
+        });
+
+        let mut selected_index = self
+            .installed_steamapps
+            .iter()
+            .position(|game_opt| match (game_opt, &h.steam_appid) {
+                (Some(game), Some(appid)) => game.app_id == *appid,
+                (None, None) => true,
+                _ => false,
+            })
+            .unwrap_or(0);
+
+        egui::ComboBox::new("appid", "Steam AppID").show_index(
+            ui,
+            &mut selected_index,
+            self.installed_steamapps.len(),
+            |i| match &self.installed_steamapps[i] {
+                Some(app) => format!("({}) {}", app.app_id, app.install_dir),
+                None => "None".to_string(),
+            },
+        );
+
+        h.steam_appid = match &self.installed_steamapps[selected_index] {
+            Some(app) => Some(app.app_id),
+            None => None,
+        };
 
         ui.horizontal(|ui| {
             ui.label("Executable path (relative to game directory):");
@@ -129,7 +165,7 @@ impl PartyApp {
             ui.radio_value(&mut h.is32bit, true, "32-bit");
         });
 
-        if h.win() {
+        if !h.win() {
             ui.horizontal(|ui| {
                 ui.label("Linux Runtime:");
                 ui.radio_value(&mut h.runtime, "".to_string(), "None");
@@ -137,6 +173,16 @@ impl PartyApp {
                 ui.radio_value(&mut h.runtime, "soldier".to_string(), "2.0 (soldier)");
             });
         }
+
+        ui.checkbox(&mut h.use_goldberg, "Use Goldberg Steam Emu");
+
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+            if ui.button("Save").clicked() {
+                if let Err(e) = h.save_to_json() {
+                    msg("Error saving", &format!("{}", e));
+                }
+            }
+        });
     }
 
     pub fn display_page_game(&mut self, ui: &mut Ui) {
