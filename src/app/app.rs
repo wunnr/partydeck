@@ -449,8 +449,18 @@ impl PartyApp {
             move || {
                 sleep(std::time::Duration::from_secs(2));
                 if let Err(err) = launch_game(&handler, &dev_infos, &instances, &cfg) {
-                    println!("[partydeck] Error: {}", err);
+                    println!("[partydeck] Error launching instances: {}", err);
                     msg("Launch Error", &format!("{err}"));
+                }
+                if cfg.enable_kwin_script {
+                    if let Err(err) = kwin_dbus_unload_script() {
+                        println!("[partydeck] Error unloading KWin script: {}", err);
+                        msg("Failed unloading KWin script", &format!("{err}"));
+                    }
+                }
+                if let Err(err) = remove_guest_profiles() {
+                    println!("[partydeck] Error removing guest profiles: {}", err);
+                    msg("Failed removing guest profiles", &format!("{err}"));
                 }
             },
         );

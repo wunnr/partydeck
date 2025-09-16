@@ -7,7 +7,6 @@ use crate::input::*;
 use crate::instance::*;
 use crate::paths::*;
 use crate::profiles::create_profile;
-use crate::remove_guest_profiles;
 use crate::util::*;
 
 pub fn launch_game(
@@ -64,12 +63,6 @@ pub fn launch_game(
     for mut handle in handles {
         handle.wait()?;
     }
-
-    if cfg.enable_kwin_script {
-        kwin_dbus_unload_script()?;
-    }
-
-    remove_guest_profiles()?;
 
     Ok(())
 }
