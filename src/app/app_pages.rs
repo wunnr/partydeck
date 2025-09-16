@@ -1,5 +1,6 @@
 use super::app::{MenuPage, PartyApp, SettingsPage};
 use super::config::*;
+use crate::handler::scan_handlers;
 use crate::input::*;
 use crate::paths::*;
 use crate::profiles::*;
@@ -8,6 +9,7 @@ use crate::util::*;
 use dialog::DialogBox;
 use eframe::egui::RichText;
 use eframe::egui::{self, Ui};
+use std::path::PathBuf;
 
 macro_rules! cur_handler {
     ($self:expr) => {
@@ -70,7 +72,7 @@ impl PartyApp {
             .auto_shrink(false)
             .show(ui, |ui| {
                 for profile in &self.profiles {
-                    if ui.selectable_value(&mut 0, 0, profile).clicked() {
+                    if ui.selectable_value(&mut 0, 1, profile).clicked() {
                         if let Err(_) = std::process::Command::new("sh")
                             .arg("-c")
                             .arg(format!(
@@ -149,9 +151,28 @@ impl PartyApp {
             None => None,
         };
 
+        if h.steam_appid == None {
+            ui.horizontal(|ui| {
+                ui.label("Game root folder:");
+                ui.add_enabled(false, egui::TextEdit::singleline(&mut h.path_gameroot));
+                if ui.button("🗁").clicked() {
+                    if let Ok(path) = dir_dialog() {
+                        h.path_gameroot = path.to_string_lossy().to_string();
+                    }
+                }
+            });
+        }
+
         ui.horizontal(|ui| {
             ui.label("Executable path (relative to game directory):");
-            ui.add(egui::TextEdit::singleline(&mut h.exec));
+            ui.add_enabled(false, egui::TextEdit::singleline(&mut h.exec));
+            if ui.button("🗁").clicked() {
+                if let Ok(base_path) = h.get_game_rootpath()
+                    && let Ok(path) = file_dialog_relative(&PathBuf::from(base_path))
+                {
+                    h.exec = path.to_string_lossy().to_string();
+                }
+            }
         });
 
         ui.horizontal(|ui| {
@@ -181,6 +202,7 @@ impl PartyApp {
                 if let Err(e) = h.save_to_json() {
                     msg("Error saving", &format!("{}", e));
                 }
+                self.handlers = scan_handlers();
             }
         });
     }
