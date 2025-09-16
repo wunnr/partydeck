@@ -4,6 +4,7 @@ use crate::input::*;
 use crate::profiles::scan_profiles;
 use crate::util::*;
 
+use eframe::egui::Popup;
 use eframe::egui::RichText;
 use eframe::egui::{self, Ui};
 
@@ -163,12 +164,21 @@ impl PartyApp {
     }
 
     pub fn panel_left_game_list(&mut self, ui: &mut Ui) {
-        let mut refresh_games = false;
+        for i in 0..self.handlers.len() {
+            // Skip if index is out of bounds to catch for removing/rescanning handlers
+            if i >= self.handlers.len() {
+                continue;
+            }
 
-        for (i, h) in self.handlers.iter().enumerate() {
             ui.horizontal(|ui| {
-                ui.add(egui::Image::new(h.icon()).max_width(16.0).corner_radius(2));
-                let btn = ui.selectable_value(&mut self.selected_handler, i, h.display());
+                ui.add(
+                    egui::Image::new(self.handlers[i].icon())
+                        .max_width(16.0)
+                        .corner_radius(2),
+                );
+
+                let btn =
+                    ui.selectable_value(&mut self.selected_handler, i, self.handlers[i].display());
                 if btn.has_focus() {
                     btn.scroll_to_me(None);
                 }
@@ -176,54 +186,44 @@ impl PartyApp {
                     self.cur_page = MenuPage::Game;
                 };
 
-                let popup_id = ui.make_persistent_id(format!("gamectx{}", i));
-                egui::old_popup::popup_below_widget(
-                    ui,
-                    popup_id,
-                    &btn,
-                    egui::PopupCloseBehavior::CloseOnClick,
-                    |ui| {
-                        if ui.button("Remove").clicked() {
-                            if yesno(
-                                "Remove game?",
-                                &format!(
-                                    "Are you sure you want to remove {}?",
-                                    cur_handler!(self).display()
-                                ),
-                            ) {
-                                if let Err(err) = cur_handler!(self).remove_dir() {
-                                    println!("[partydeck] Failed to remove game: {}", err);
-                                    msg("Error", &format!("Failed to remove game: {}", err));
-                                }
-                            }
-                            refresh_games = true;
-                        }
-
-                        if ui.button("Open Handler Folder").clicked() {
-                            if let Err(_) = std::process::Command::new("sh")
-                                .arg("-c")
-                                .arg(format!("xdg-open {}", h.path_handler.display()))
-                                .status()
-                            {
-                                msg("Error", "Couldn't open handler folder!");
-                            }
-                        }
-
-                        if ui.button("Edit Handler").clicked() {
-                            self.handler_edit = Some(h.clone());
-                            self.cur_page = MenuPage::EditHandler;
-                        }
-                    },
-                );
-
-                if btn.secondary_clicked() {
-                    ui.memory_mut(|mem| mem.toggle_popup(popup_id));
-                }
+                Popup::context_menu(&btn).show(|ui| self.handler_ctx_menu(ui, i));
             });
         }
-        // Hacky workaround to avoid borrowing conflicts from inside the loop
-        if refresh_games {
-            self.handlers = scan_handlers();
+    }
+
+    pub fn handler_ctx_menu(&mut self, ui: &mut Ui, i: usize) {
+        if ui.button("Edit").clicked() {
+            self.handler_edit = Some(self.handlers[i].clone());
+            self.cur_page = MenuPage::EditHandler;
+        }
+
+        if ui.button("Open Folder").clicked() {
+            if let Err(_) = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "xdg-open {}",
+                    self.handlers[i].path_handler.display()
+                ))
+                .status()
+            {
+                msg("Error", "Couldn't open handler folder!");
+            }
+        }
+
+        if ui.button("Remove").clicked() {
+            if yesno(
+                "Remove handler?",
+                &format!(
+                    "Are you sure you want to remove {}?",
+                    self.handlers[i].display()
+                ),
+            ) {
+                if let Err(err) = self.handlers[i].remove_dir() {
+                    println!("[partydeck] Failed to remove handler: {}", err);
+                    msg("Error", &format!("Failed to remove handler: {}", err));
+                }
+                self.handlers = scan_handlers();
+            }
         }
     }
 }
