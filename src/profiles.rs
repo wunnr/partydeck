@@ -24,36 +24,6 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(path_profile.join("home/.config"))?;
     std::fs::create_dir_all(path_steam.clone())?;
 
-    // Set read/write permissions on all created directories
-    // #[cfg(unix)]
-    // {
-    //     use std::os::unix::fs::PermissionsExt;
-    //     let paths_to_fix = [
-    //         &path_profile,
-    //         &path_profile.join("work"),
-    //         &path_profile.join("windata"),
-    //         &path_profile.join("windata/AppData"),
-    //         &path_profile.join("windata/AppData/Local"),
-    //         &path_profile.join("windata/AppData/LocalLow"),
-    //         &path_profile.join("windata/AppData/Roaming"),
-    //         &path_profile.join("windata/Documents"),
-    //         &path_profile.join("home"),
-    //         &path_profile.join("home/.local"),
-    //         &path_profile.join("home/.local/share"),
-    //         &path_profile.join("home/.config"),
-    //         &path_profile.join("steam"),
-    //         &path_steam,
-    //     ];
-
-    //     for path in &paths_to_fix {
-    //         if path.exists() {
-    //             let mut perms = std::fs::metadata(path)?.permissions();
-    //             perms.set_mode(0o755);
-    //             std::fs::set_permissions(path, perms)?;
-    //         }
-    //     }
-    // }
-
     let steam_id = format!("{:017}", rand::rng().random_range(u32::MIN..u32::MAX));
     let usersettings = format!(
         "[user::general]\naccount_name={name}\naccount_steamid={steam_id}\nlanguage=english\nip_country=US"
