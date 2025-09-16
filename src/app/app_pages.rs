@@ -111,20 +111,19 @@ impl PartyApp {
             }
         };
 
+        ui.heading("Edit Handler");
+        ui.separator();
+
         ui.horizontal(|ui| {
             ui.label("Name:");
-            ui.add(egui::TextEdit::singleline(&mut h.name));
-        });
-
-        ui.horizontal(|ui| {
+            ui.add(egui::TextEdit::singleline(&mut h.name).desired_width(150.0));
             ui.label("Author:");
-            ui.add(egui::TextEdit::singleline(&mut h.author));
+            ui.add(egui::TextEdit::singleline(&mut h.author).desired_width(50.0));
+            ui.label("Version:");
+            ui.add(egui::TextEdit::singleline(&mut h.version).desired_width(50.0));
         });
 
-        ui.horizontal(|ui| {
-            ui.label("Version:");
-            ui.add(egui::TextEdit::singleline(&mut h.version));
-        });
+        ui.separator();
 
         let mut selected_index = self
             .installed_steamapps
@@ -136,15 +135,23 @@ impl PartyApp {
             })
             .unwrap_or(0);
 
-        egui::ComboBox::new("appid", "Steam AppID").show_index(
-            ui,
-            &mut selected_index,
-            self.installed_steamapps.len(),
-            |i| match &self.installed_steamapps[i] {
-                Some(app) => format!("({}) {}", app.app_id, app.install_dir),
-                None => "None".to_string(),
-            },
-        );
+        ui.horizontal(|ui| {
+            ui.label("Steam App:");
+            egui::ComboBox::from_id_salt("appid")
+                .wrap()
+                .width(200.0)
+                .show_index(
+                    ui,
+                    &mut selected_index,
+                    self.installed_steamapps.len(),
+                    |i| match &self.installed_steamapps[i] {
+                        Some(app) => format!("({}) {}", app.app_id, app.install_dir),
+                        None => "None".to_string(),
+                    },
+                );
+
+            ui.checkbox(&mut h.use_goldberg, "Use Goldberg Steam Emu");
+        });
 
         h.steam_appid = match &self.installed_steamapps[selected_index] {
             Some(app) => Some(app.app_id),
@@ -164,7 +171,7 @@ impl PartyApp {
         }
 
         ui.horizontal(|ui| {
-            ui.label("Executable path (relative to game directory):");
+            ui.label("Executable:");
             ui.add_enabled(false, egui::TextEdit::singleline(&mut h.exec));
             if ui.button("🗁").clicked() {
                 if let Ok(base_path) = h.get_game_rootpath()
@@ -194,8 +201,6 @@ impl PartyApp {
                 ui.radio_value(&mut h.runtime, "soldier".to_string(), "2.0 (soldier)");
             });
         }
-
-        ui.checkbox(&mut h.use_goldberg, "Use Goldberg Steam Emu");
 
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
             if ui.button("Save").clicked() {
