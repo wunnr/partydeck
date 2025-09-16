@@ -1,4 +1,6 @@
+use crate::paths::PATH_HOME;
 use dialog::{Choice, DialogBox};
+use rfd::FileDialog;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -13,6 +15,30 @@ pub fn yesno(title: &str, contents: &str) -> bool {
         }
     }
     false
+}
+
+pub fn dir_dialog() -> Result<PathBuf, Box<dyn Error>> {
+    let dir = FileDialog::new()
+        .set_title("Select Folder")
+        .set_directory(&*PATH_HOME)
+        .pick_folder()
+        .ok_or_else(|| "No folder selected")?;
+    Ok(dir)
+}
+
+pub fn file_dialog_relative(base_dir: &PathBuf) -> Result<PathBuf, Box<dyn Error>> {
+    let file = FileDialog::new()
+        .set_title("Select File")
+        .set_directory(base_dir)
+        .pick_file()
+        .ok_or_else(|| "No file selected")?;
+
+    if file.starts_with(base_dir) {
+        let relative_path = file.strip_prefix(base_dir)?;
+        Ok(relative_path.to_path_buf())
+    } else {
+        Err("Selected file is not within the base directory".into())
+    }
 }
 
 pub fn copy_dir_recursive(src: &PathBuf, dest: &PathBuf) -> Result<(), Box<dyn Error>> {
@@ -144,38 +170,6 @@ pub fn kwin_dbus_unload_script() -> Result<(), Box<dyn Error>> {
 
     println!("[partydeck] util::kwin_dbus_unload_script - Script unloaded.");
     Ok(())
-}
-
-pub trait JsonExtras {
-    fn as_u32(&self) -> Option<u32>;
-    fn string_or_default(&self) -> String;
-    fn string_vec_or_default(&self) -> Vec<String>;
-}
-
-impl JsonExtras for serde_json::value::Value {
-    fn as_u32(&self) -> Option<u32> {
-        match self {
-            serde_json::value::Value::Number(num) => num.as_u64().map(|n| n as u32),
-            _ => None,
-        }
-    }
-
-    fn string_or_default(&self) -> String {
-        match self {
-            serde_json::value::Value::String(s) => s.clone(),
-            _ => "".to_string(),
-        }
-    }
-
-    fn string_vec_or_default(&self) -> Vec<String> {
-        match self {
-            serde_json::value::Value::Array(arr) => arr
-                .iter()
-                .map(|v| v.string_or_default().sanitize_path())
-                .collect(),
-            _ => Vec::new(),
-        }
-    }
 }
 
 pub trait SanitizePath {
