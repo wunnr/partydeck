@@ -3321,7 +3321,7 @@ dependencies = [
 
 [[package]]
 name = "partydeck"
-version = "0.7.0-new-game-launch"
+version = "0.8.0"
 dependencies = [
  "compress-tools",
  "dialog",
