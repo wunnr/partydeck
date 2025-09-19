@@ -89,7 +89,7 @@ fn main() -> eframe::Result {
     }
 
     let handler_lite = if !exec.is_empty() {
-        Some(Handler::new_from_cli(&exec, &execargs))
+        Some(Handler::from_cli(&exec, &execargs))
     } else {
         None
     };
