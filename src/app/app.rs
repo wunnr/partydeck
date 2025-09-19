@@ -210,28 +210,6 @@ impl PartyApp {
         self.handler_lite.is_some()
     }
 
-    pub fn add_handler(&mut self) -> Result<(), String> {
-        if let Some(uid) = dialog::Input::new("Enter ID for new handler (must be alphanumeric):")
-            .title("New Handler")
-            .show()
-            .expect("Could not display dialog box")
-        {
-            if uid.is_empty() {
-                return Err("ID cannot be empty".to_string());
-            } else if !uid.chars().all(char::is_alphanumeric) {
-                return Err("ID must be alphanumeric".to_string());
-            } else if PATH_PARTY.join("handlers").join(&uid).exists() {
-                return Err(format!("Handler with ID '{}' already exists", uid));
-            } else {
-                self.handler_edit = Some(Handler::new_from_uid(&uid));
-                self.cur_page = MenuPage::EditHandler;
-                return Ok(());
-            }
-        }
-
-        Err("Error opening dialog box".to_string())
-    }
-
     fn handle_gamepad_gui(&mut self, raw_input: &mut egui::RawInput) {
         let mut key: Option<egui::Key> = None;
         for pad in &mut self.input_devices {
