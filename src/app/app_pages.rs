@@ -111,7 +111,12 @@ impl PartyApp {
             }
         };
 
-        ui.heading("Edit Handler");
+        let header = match h.uid.is_empty() {
+            true => "Create Handler",
+            false => "Edit Handler",
+        };
+
+        ui.heading(header);
         ui.separator();
 
         ui.horizontal(|ui| {
@@ -205,9 +210,11 @@ impl PartyApp {
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
             if ui.button("Save").clicked() {
                 if let Err(e) = h.save_to_json() {
-                    msg("Error saving", &format!("{}", e));
+                    msg("", &format!("{}", e));
+                } else {
+                    self.handlers = scan_handlers();
+                    self.cur_page = MenuPage::Game;
                 }
-                self.handlers = scan_handlers();
             }
         });
     }
@@ -239,7 +246,7 @@ impl PartyApp {
 
             ui.add(egui::Separator::default().vertical());
             if h.win() {
-                ui.label(" Proton");
+                ui.label(" Proton");
             } else {
                 ui.label("🐧 Native");
             }
