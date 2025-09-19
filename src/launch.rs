@@ -139,18 +139,14 @@ pub fn launch_cmds(
             cmd.env("PROTON_VERB", "run");
             cmd.env("PROTONPATH", &protonpath);
 
-            if !h.dll_overrides.is_empty() {
-                let mut overrides = String::new();
-                for dll in &h.dll_overrides {
-                    overrides.push_str(&format!("{dll},"));
+            if !h.env.is_empty() {
+                let env_vars: Vec<&str> = h.env.split_whitespace().collect();
+                for env_var in env_vars {
+                    if let Some((key, value)) = env_var.split_once('=') {
+                        cmd.env(key, value);
+                    }
                 }
-                overrides.push_str("=n,b\" ");
-
-                cmd.env("WINEDLLOVERRIDES", &overrides);
             }
-            // if h.coldclient {
-            //     cmd.env("PROTON_DISABLE_LSTEAMCLIENT", "1");
-            // }
         }
 
         // Gamescope args
@@ -217,7 +213,7 @@ pub fn launch_cmds(
             cmd.args(["--overlay", &path_prof_home, &path_prof_work, &home]);
         }
 
-        for subdir in &h.game_unique_paths {
+        for subdir in &h.game_save_paths {
             let path_prof_subdir = format!("{path_prof}/{subdir}");
             let path_game_subdir = format!("{gamedir}/{subdir}");
             cmd.args(["--bind", &path_prof_subdir, &path_game_subdir]);
