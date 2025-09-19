@@ -1,4 +1,6 @@
 use super::app::{MenuPage, PartyApp};
+use crate::Handler;
+use crate::handler::import_pd2;
 use crate::handler::scan_handlers;
 use crate::input::*;
 use crate::profiles::scan_profiles;
@@ -83,8 +85,14 @@ impl PartyApp {
             ui.heading("Games");
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("➕").clicked() {
-                    if let Err(e) = self.add_handler() {
-                        msg("Error adding handler", &e);
+                    self.handler_edit = Some(Handler::default());
+                    self.cur_page = MenuPage::EditHandler;
+                }
+                if ui.button("⬇").clicked() {
+                    if let Err(e) = import_pd2() {
+                        msg("Error", &format!("Error importing PD2: {}", e));
+                    } else {
+                        self.handlers = scan_handlers();
                     }
                 }
                 if ui.button("🔄").clicked() {
@@ -167,7 +175,7 @@ impl PartyApp {
         for i in 0..self.handlers.len() {
             // Skip if index is out of bounds to catch for removing/rescanning handlers
             if i >= self.handlers.len() {
-                continue;
+                return;
             }
 
             ui.horizontal(|ui| {
@@ -222,7 +230,21 @@ impl PartyApp {
                     println!("[partydeck] Failed to remove handler: {}", err);
                     msg("Error", &format!("Failed to remove handler: {}", err));
                 }
+
                 self.handlers = scan_handlers();
+                if self.handlers.is_empty() {
+                    self.cur_page = MenuPage::Home;
+                }
+                if i >= self.handlers.len() {
+                    self.selected_handler = 0;
+                }
+            }
+        }
+
+        if ui.button("Export").clicked() {
+            if let Err(err) = self.handlers[i].export_pd2() {
+                println!("[partydeck] Failed to export handler: {}", err);
+                msg("Error", &format!("Failed to export handler: {}", err));
             }
         }
     }
