@@ -51,7 +51,7 @@ pub fn create_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Error>> {
     }
     println!("[partydeck] Creating game save {} for {}", h.uid, name);
 
-    for path in &h.game_unique_paths {
+    for path in &h.game_save_paths {
         if path.is_empty() {
             continue;
         }
