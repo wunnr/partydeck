@@ -1,5 +1,7 @@
 use crate::paths::PATH_HOME;
+
 use dialog::{Choice, DialogBox};
+use eframe::egui::TextBuffer;
 use rfd::FileDialog;
 use std::error::Error;
 use std::path::PathBuf;
@@ -72,6 +74,17 @@ pub fn copy_dir_recursive(src: &PathBuf, dest: &PathBuf) -> Result<(), Box<dyn E
         }
     }
 
+    Ok(())
+}
+
+pub fn zip_dir(src_dir: &PathBuf, dest: &PathBuf) -> Result<(), Box<dyn Error>> {
+    // Temp, should maybe be done with a crate
+    std::process::Command::new("zip")
+        .current_dir(src_dir)
+        .arg("-r")
+        .arg(dest.to_string_lossy().as_str())
+        .arg(".")
+        .output()?;
     Ok(())
 }
 
