@@ -26,6 +26,31 @@ pub fn launch_game(
         );
     }
 
+    std::fs::create_dir_all(PATH_PARTY.join("tmp"))?;
+    if h.use_goldberg
+        && let Some(appid) = h.steam_appid
+        && let Some(steamdll) = h.locate_steamapi_path()
+    {
+        std::fs::create_dir_all(PATH_PARTY.join("tmp/steam_settings"))?;
+
+        std::fs::write(
+            PATH_PARTY.join("tmp/steam_settings/steam_appid.txt"),
+            appid.to_string(),
+        )?;
+
+        let gen_interfaces = match &h.is32bit {
+            true => PATH_RES.join("goldberg/generate_interfaces_x32"),
+            false => PATH_RES.join("goldberg/generate_interfaces_x64"),
+        };
+        let status = std::process::Command::new(gen_interfaces)
+            .arg(steamdll)
+            .current_dir(PATH_PARTY.join("tmp/steam_settings"))
+            .status()?;
+        if !status.success() {
+            return Err("Generate interfaces failed".into());
+        }
+    }
+
     let new_cmds = launch_cmds(h, input_devices, instances, cfg)?;
     print_launch_cmds(&new_cmds);
 
@@ -108,7 +133,7 @@ pub fn launch_cmds(
 
     for (i, instance) in instances.iter().enumerate() {
         let path_prof = &format!("{party}/profiles/{}", instance.profname.as_str());
-        let path_save = &format!("{path_prof}/saves/{}", h.uid.as_str());
+        //let path_save = &format!("{path_prof}/saves/{}", h.uid.as_str());
         let path_pfx = match cfg.proton_separate_pfxs {
             true => &format!("{party}/pfx{}", i + 1),
             false => &format!("{party}/pfx"),
@@ -213,10 +238,35 @@ pub fn launch_cmds(
             cmd.args(["--overlay", &path_prof_home, &path_prof_work, &home]);
         }
 
-        for subdir in &h.game_save_paths {
-            let path_prof_subdir = format!("{path_prof}/{subdir}");
-            let path_game_subdir = format!("{gamedir}/{subdir}");
-            cmd.args(["--bind", &path_prof_subdir, &path_game_subdir]);
+        // for subdir in &h.game_save_paths {
+        //     let path_prof_subdir = format!("{path_prof}/{subdir}");
+        //     let path_game_subdir = format!("{gamedir}/{subdir}");
+        //     cmd.args(["--bind", &path_prof_subdir, &path_game_subdir]);
+        // }
+
+        if h.path_handler.join("overlay").exists() && h.path_handler.join("work").exists() {
+            let path_overlay = h.path_handler.join("overlay");
+            let path_work = h.path_handler.join("work");
+            cmd.args(["--overlay-src", &gamedir]);
+            cmd.args([
+                "--overlay",
+                &path_overlay.to_string_lossy(),
+                &path_work.to_string_lossy(),
+                &home,
+            ]);
+        }
+
+        for subdir in &h.game_null_paths {
+            let path = PathBuf::from(gamedir.clone()).join(subdir);
+            if path.is_file() {
+                cmd.args(["--bind", "/dev/null", &path.to_string_lossy()]);
+            } else if path.is_dir() {
+                cmd.args([
+                    "--bind",
+                    &PATH_PARTY.join("tmp").to_string_lossy(),
+                    &path.to_string_lossy(),
+                ]);
+            }
         }
 
         if h.use_goldberg {
@@ -232,6 +282,14 @@ pub fn launch_cmds(
                     },
                 };
                 cmd.args(["--bind", &src.to_string_lossy(), &dest.to_string_lossy()]);
+
+                if let Some(parent) = dest.parent() {
+                    cmd.args([
+                        "--bind",
+                        &PATH_PARTY.join("tmp/steam_settings").to_string_lossy(),
+                        &parent.join("steam_settings").to_string_lossy(),
+                    ]);
+                }
             }
         }
 
@@ -275,7 +333,7 @@ pub fn launch_cmds(
                 "$PROFILE" => instance.profname.as_str(),
                 "$WIDTH" => &format!("{}", instance.width),
                 "$HEIGHT" => &format!("{}", instance.height),
-                "$WIDTHXHEIGHT" => &format!("{}x{}", instance.width, instance.height),
+                "$RESOLUTION" => &format!("{}x{}", instance.width, instance.height),
                 _ => &arg.sanitize_path(),
             };
             cmd.arg(arg);
