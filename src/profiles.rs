@@ -35,51 +35,51 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
 }
 
 // Creates the "game save" folder for per-profile game data to go into
-pub fn create_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Error>> {
-    let path_gamesave = PATH_PARTY
-        .join("profiles")
-        .join(name)
-        .join("saves")
-        .join(&h.uid);
+// pub fn create_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Error>> {
+//     let path_gamesave = PATH_PARTY
+//         .join("profiles")
+//         .join(name)
+//         .join("saves")
+//         .join(&h.uid);
 
-    if path_gamesave.exists() {
-        println!(
-            "[partydeck] {} already has save for {}, continuing...",
-            name, h.uid
-        );
-        return Ok(());
-    }
-    println!("[partydeck] Creating game save {} for {}", h.uid, name);
+//     if path_gamesave.exists() {
+//         println!(
+//             "[partydeck] {} already has save for {}, continuing...",
+//             name, h.uid
+//         );
+//         return Ok(());
+//     }
+//     println!("[partydeck] Creating game save {} for {}", h.uid, name);
 
-    for path in &h.game_save_paths {
-        if path.is_empty() {
-            continue;
-        }
-        // If the path contains a dot, we assume it to be a file, and don't create a directory,
-        // hoping that the handler uses copy_to_profilesave to get the relevant file in there.
-        // Kind of a hacky solution since folders can technically have dots in their names.
-        if path.contains('.') {
-            continue;
-        }
-        println!("[partydeck] Creating subdirectory /{path}");
-        let path = path_gamesave.join(path);
-        if !path.exists() {
-            std::fs::create_dir_all(path)?;
-        }
-    }
+//     for path in &h.game_save_paths {
+//         if path.is_empty() {
+//             continue;
+//         }
+//         // If the path contains a dot, we assume it to be a file, and don't create a directory,
+//         // hoping that the handler uses copy_to_profilesave to get the relevant file in there.
+//         // Kind of a hacky solution since folders can technically have dots in their names.
+//         if path.contains('.') {
+//             continue;
+//         }
+//         println!("[partydeck] Creating subdirectory /{path}");
+//         let path = path_gamesave.join(path);
+//         if !path.exists() {
+//             std::fs::create_dir_all(path)?;
+//         }
+//     }
 
-    let copy_save_src = PathBuf::from(&h.path_handler).join("copy_to_profilesave");
-    if copy_save_src.exists() {
-        println!(
-            "[partydeck] {} handler has built-in save data, copying...",
-            h.uid
-        );
-        copy_dir_recursive(&copy_save_src, &path_gamesave)?;
-    }
+//     let copy_save_src = PathBuf::from(&h.path_handler).join("copy_to_profilesave");
+//     if copy_save_src.exists() {
+//         println!(
+//             "[partydeck] {} handler has built-in save data, copying...",
+//             h.uid
+//         );
+//         copy_dir_recursive(&copy_save_src, &path_gamesave)?;
+//     }
 
-    println!("[partydeck] Save data directories created successfully");
-    Ok(())
-}
+//     println!("[partydeck] Save data directories created successfully");
+//     Ok(())
+// }
 
 // Gets a vector of all available profiles.
 // include_guest true for building the profile selector dropdown, false for the profile viewer.
@@ -118,6 +118,7 @@ pub fn remove_guest_profiles() -> Result<(), Box<dyn Error>> {
         let name_str = name.to_string_lossy();
 
         if name_str.starts_with(".") {
+            // When bwrap uses a work folder it locks permissions, so we need to unlock them before removing the directory
             let path = entry.path().join("work").join("work");
             if path.exists() {
                 let mut perms = std::fs::metadata(&path)?.permissions();
