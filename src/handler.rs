@@ -1,5 +1,5 @@
 use crate::paths::*;
-use crate::util::{copy_dir_recursive, zip_dir};
+use crate::util::{SanitizePath, copy_dir_recursive, zip_dir};
 
 use dialog::DialogBox;
 use eframe::egui::{self, ImageSource};
@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -17,8 +18,6 @@ pub struct Handler {
     pub path_handler: PathBuf,
     #[serde(skip)]
     pub img_paths: Vec<PathBuf>,
-    #[serde(skip)]
-    pub uid: String,
 
     pub name: String,
     pub author: String,
@@ -47,7 +46,6 @@ impl Default for Handler {
             path_handler: PathBuf::new(),
             img_paths: Vec::new(),
             path_gameroot: String::new(),
-            uid: String::new(),
 
             name: String::new(),
             author: String::new(),
@@ -75,17 +73,18 @@ impl Handler {
         let file = File::open(json_path)?;
         let mut handler = serde_json::from_reader::<_, Handler>(BufReader::new(file))?;
 
-        handler.uid = json_path
-            .parent()
-            .and_then(|p| p.file_name())
-            .and_then(|name| name.to_str())
-            .unwrap_or_default()
-            .to_string();
         handler.path_handler = json_path
             .parent()
             .ok_or_else(|| "Invalid path")?
             .to_path_buf();
         handler.img_paths = handler.get_imgs();
+
+        for path in &mut handler.game_null_paths {
+            *path = path.sanitize_path();
+        }
+        for path in &mut handler.game_save_paths {
+            *path = path.sanitize_path();
+        }
 
         Ok(handler)
     }
@@ -96,7 +95,6 @@ impl Handler {
             img_paths: Vec::new(),
             path_gameroot: String::new(),
 
-            uid: "".to_string(),
             name: String::new(),
             author: String::new(),
             version: String::new(),
@@ -117,39 +115,6 @@ impl Handler {
         }
     }
 
-    pub fn save_to_json(&mut self) -> Result<(), Box<dyn Error>> {
-        // If handler has no path, assume we're saving a newly created handler
-        if self.path_handler.as_os_str().is_empty() {
-            if let Some(uid) =
-                dialog::Input::new("Enter unique ID for new handler (must be alphanumeric):")
-                    .title("New Handler")
-                    .show()
-                    .expect("Could not display dialog box")
-            {
-                if uid.is_empty() {
-                    return Err("ID cannot be empty".into());
-                } else if !uid.chars().all(char::is_alphanumeric) {
-                    return Err("ID must be alphanumeric".into());
-                } else if PATH_PARTY.join("handlers").join(&uid).exists() {
-                    return Err(format!("Handler with ID '{}' already exists", uid).into());
-                } else {
-                    self.path_handler = PATH_PARTY.join("handlers").join(&uid);
-                }
-            } else {
-                return Err("Handler not saved".into());
-            }
-        }
-
-        if !self.path_handler.exists() {
-            std::fs::create_dir_all(&self.path_handler)?;
-        }
-
-        let json = serde_json::to_string_pretty(self)?;
-        std::fs::write(self.path_handler.join("handler.json"), json)?;
-
-        Ok(())
-    }
-
     pub fn icon(&self) -> ImageSource<'_> {
         if self.path_handler.join("icon.png").exists() {
             format!("file://{}/icon.png", self.path_handler.display()).into()
@@ -159,15 +124,22 @@ impl Handler {
     }
 
     pub fn display(&self) -> &str {
-        if self.name.is_empty() {
-            self.uid.as_str()
-        } else {
-            self.name.as_str()
-        }
+        self.name.as_str()
     }
 
     pub fn win(&self) -> bool {
         self.exec.ends_with(".exe") || self.exec.ends_with(".bat")
+    }
+
+    pub fn is_saved_handler(&self) -> bool {
+        !self.path_handler.as_os_str().is_empty()
+    }
+
+    pub fn handler_dir_name(&self) -> &str {
+        self.path_handler
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
     }
 
     fn get_imgs(&self) -> Vec<PathBuf> {
@@ -194,7 +166,20 @@ impl Handler {
         out
     }
 
-    pub fn remove_dir(&self) -> Result<(), Box<dyn Error>> {
+    pub fn remove_handler(&self) -> Result<(), Box<dyn Error>> {
+        if !self.is_saved_handler() {
+            return Err("No handler directory to remove".into());
+        }
+        // TODO: Also return err if handler path exists but is not inside PATH_PARTY/handlers
+
+        // When bwrap uses a work folder it locks permissions, so we need to unlock them before removing the directory
+        let workpath = self.path_handler.join("work").join("work");
+        if workpath.exists() {
+            let mut perms = std::fs::metadata(&workpath)?.permissions();
+            perms.set_mode(0o777);
+            std::fs::set_permissions(&workpath, perms)?;
+        }
+
         std::fs::remove_dir_all(self.path_handler.clone())?;
 
         Ok(())
@@ -251,7 +236,44 @@ impl Handler {
         Err("Game root path not found".into())
     }
 
+    pub fn save_to_json(&mut self) -> Result<(), Box<dyn Error>> {
+        // If handler has no path, assume we're saving a newly created handler
+        if !self.is_saved_handler() {
+            if self.name.is_empty() {
+                return Err("Name cannot be empty".into());
+            }
+            if !PATH_PARTY.join("handlers").join(&self.name).exists() {
+                self.path_handler = PATH_PARTY.join("handlers").join(&self.name);
+            } else {
+                let mut i = 1;
+                while PATH_PARTY
+                    .join("handlers")
+                    .join(&format!("{}-{}", self.name, i))
+                    .exists()
+                {
+                    i += 1;
+                }
+                self.path_handler = PATH_PARTY
+                    .join("handlers")
+                    .join(&format!("{}-{}", self.name, i));
+            }
+        }
+
+        if !self.path_handler.exists() {
+            std::fs::create_dir_all(&self.path_handler)?;
+        }
+
+        let json = serde_json::to_string_pretty(self)?;
+        std::fs::write(self.path_handler.join("handler.json"), json)?;
+
+        Ok(())
+    }
+
     pub fn export_pd2(&self) -> Result<(), Box<dyn Error>> {
+        if self.name.is_empty() {
+            return Err("Name cannot be empty".into());
+        }
+
         let mut file = FileDialog::new()
             .set_title("Save file to:")
             .set_directory(&*PATH_HOME)
@@ -333,28 +355,36 @@ pub fn import_pd2() -> Result<(), Box<dyn Error>> {
 
     let handler_path = dir_tmp.join("handler.json");
     if !handler_path.exists() {
+        std::fs::remove_dir_all(&dir_tmp)?;
         return Err("handler.json not found in archive".into());
     }
 
-    if let Some(uid) =
-        dialog::Input::new("Enter unique ID to save handler to (must be alphanumeric):")
-            .title("New Handler")
-            .show()
-            .expect("Could not display dialog box")
-    {
-        if uid.is_empty() {
-            return Err("ID cannot be empty".into());
-        } else if !uid.chars().all(char::is_alphanumeric) {
-            return Err("ID must be alphanumeric".into());
-        } else if PATH_PARTY.join("handlers").join(&uid).exists() {
-            return Err(format!("Handler with ID '{}' already exists", uid).into());
-        } else {
-            copy_dir_recursive(&dir_tmp, &dir_handlers.join(uid))?;
-            std::fs::remove_dir_all(&dir_tmp)?;
+    // This is stupid..
+    let mut fileclone = file.clone();
+    fileclone.set_extension("");
+    let name = fileclone
+        .file_name()
+        .ok_or_else(|| "No filename")?
+        .to_string_lossy();
 
-            Ok(())
+    let path = {
+        if !dir_handlers.join(name.as_ref()).exists() {
+            dir_handlers.join(name.as_ref())
+        } else {
+            let mut i = 1;
+            while PATH_PARTY
+                .join("handlers")
+                .join(&format!("{}-{}", name, i))
+                .exists()
+            {
+                i += 1;
+            }
+            dir_handlers.join(&format!("{}-{}", name, i))
         }
-    } else {
-        Err("Handler not saved".into())
-    }
+    };
+
+    copy_dir_recursive(&dir_tmp, &path)?;
+    std::fs::remove_dir_all(&dir_tmp)?;
+
+    Ok(())
 }
