@@ -226,7 +226,7 @@ impl PartyApp {
                     self.handlers[i].display()
                 ),
             ) {
-                if let Err(err) = self.handlers[i].remove_dir() {
+                if let Err(err) = self.handlers[i].remove_handler() {
                     println!("[partydeck] Failed to remove handler: {}", err);
                     msg("Error", &format!("Failed to remove handler: {}", err));
                 }
