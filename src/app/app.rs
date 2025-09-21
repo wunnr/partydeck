@@ -1,13 +1,12 @@
-use dialog::DialogBox;
 use std::thread::sleep;
 
 use super::config::*;
+use crate::PATH_PARTY;
 use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::launch::launch_game;
 use crate::monitor::Monitor;
-use crate::paths::*;
 use crate::profiles::*;
 use crate::util::*;
 
@@ -439,6 +438,10 @@ impl PartyApp {
                 if let Err(err) = remove_guest_profiles() {
                     println!("[partydeck] Error removing guest profiles: {}", err);
                     msg("Failed removing guest profiles", &format!("{err}"));
+                }
+                if let Err(err) = std::fs::remove_dir_all(PATH_PARTY.join("tmp")) {
+                    println!("[partydeck] Error removing tmp directory: {}", err);
+                    msg("Failed removing tmp directory", &format!("{err}"));
                 }
             },
         );
