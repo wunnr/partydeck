@@ -9,6 +9,7 @@ use crate::util::*;
 use dialog::DialogBox;
 use eframe::egui::RichText;
 use eframe::egui::{self, Ui};
+use rfd::FileDialog;
 use std::path::PathBuf;
 
 macro_rules! cur_handler {
@@ -111,9 +112,9 @@ impl PartyApp {
             }
         };
 
-        let header = match h.uid.is_empty() {
-            true => "Create Handler",
-            false => "Edit Handler",
+        let header = match h.is_saved_handler() {
+            false => "Add Game",
+            true => &format!("Edit Handler: {}", h.display()),
         };
 
         ui.heading(header);
@@ -126,6 +127,24 @@ impl PartyApp {
             ui.add(egui::TextEdit::singleline(&mut h.author).desired_width(50.0));
             ui.label("Version:");
             ui.add(egui::TextEdit::singleline(&mut h.version).desired_width(50.0));
+            ui.label("Icon:");
+            ui.add(egui::Image::new(h.icon()).max_width(16.0).corner_radius(2));
+            if h.is_saved_handler() && ui.button("🖼").clicked() {
+                if let Some(file) = FileDialog::new()
+                    .set_title("Choose Icon:")
+                    .set_directory(&*PATH_HOME)
+                    .add_filter("PNG Image", &["png"])
+                    .pick_file()
+                    && let Some(extension) = file.extension()
+                    && extension == "png"
+                {
+                    let dest = h.path_handler.join("icon.png");
+                    if let Err(e) = std::fs::copy(file, dest) {
+                        eprintln!("Failed to copy icon: {}", e);
+                        msg("Error copying icon", &format!("{}", e));
+                    }
+                }
+            }
         });
 
         ui.separator();
@@ -188,7 +207,12 @@ impl PartyApp {
         });
 
         ui.horizontal(|ui| {
-            ui.label("Game arguments:");
+            ui.label("Environment variables:");
+            ui.add(egui::TextEdit::singleline(&mut h.env));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Arguments:");
             ui.add(egui::TextEdit::singleline(&mut h.args));
         });
 
@@ -210,7 +234,7 @@ impl PartyApp {
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
             if ui.button("Save").clicked() {
                 if let Err(e) = h.save_to_json() {
-                    msg("", &format!("{}", e));
+                    msg("Error saving handler", &format!("{}", e));
                 } else {
                     self.handlers = scan_handlers();
                     self.cur_page = MenuPage::Game;
