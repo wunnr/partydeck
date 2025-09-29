@@ -274,10 +274,14 @@ impl PartyApp {
             } else {
                 ui.label("🐧 Native");
             }
-            ui.add(egui::Separator::default().vertical());
-            ui.label(format!("Author: {}", h.author));
-            ui.add(egui::Separator::default().vertical());
-            ui.label(format!("Version: {}", h.version));
+            if !h.author.is_empty() {
+                ui.add(egui::Separator::default().vertical());
+                ui.label(format!("Author: {}", h.author));
+            }
+            if !h.version.is_empty() {
+                ui.add(egui::Separator::default().vertical());
+                ui.label(format!("Version: {}", h.version));
+            }
         });
 
         egui::ScrollArea::horizontal()
