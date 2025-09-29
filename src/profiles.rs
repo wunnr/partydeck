@@ -35,51 +35,56 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
 }
 
 // Creates the "game save" folder for per-profile game data to go into
-// pub fn create_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Error>> {
-//     let path_gamesave = PATH_PARTY
-//         .join("profiles")
-//         .join(name)
-//         .join("saves")
-//         .join(&h.uid);
+pub fn create_profile_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Error>> {
+    let uid = h.handler_dir_name();
+    let path_prof = PATH_PARTY.join("profiles").join(name);
+    let path_gamesave = path_prof.join("gamesaves").join(&uid);
+    let path_home = path_prof.join("home");
+    let path_windata = path_prof.join("windata");
 
-//     if path_gamesave.exists() {
-//         println!(
-//             "[partydeck] {} already has save for {}, continuing...",
-//             name, h.uid
-//         );
-//         return Ok(());
-//     }
-//     println!("[partydeck] Creating game save {} for {}", h.uid, name);
+    if path_gamesave.exists() {
+        return Ok(());
+    }
+    println!("[partydeck] Creating game save {} for {}", uid, name);
 
-//     for path in &h.game_save_paths {
-//         if path.is_empty() {
-//             continue;
-//         }
-//         // If the path contains a dot, we assume it to be a file, and don't create a directory,
-//         // hoping that the handler uses copy_to_profilesave to get the relevant file in there.
-//         // Kind of a hacky solution since folders can technically have dots in their names.
-//         if path.contains('.') {
-//             continue;
-//         }
-//         println!("[partydeck] Creating subdirectory /{path}");
-//         let path = path_gamesave.join(path);
-//         if !path.exists() {
-//             std::fs::create_dir_all(path)?;
-//         }
-//     }
+    for path in &h.game_save_paths {
+        if path.is_empty() {
+            continue;
+        }
+        let Ok(rootpath) = h.get_game_rootpath() else {
+            break;
+        };
+        let game_subpath = PathBuf::from(rootpath).join(path);
+        if game_subpath.is_file() {
+            if let Some(parent) = PathBuf::from(path).parent()
+                && !parent.as_os_str().is_empty()
+            {
+                std::fs::create_dir_all(path_gamesave.join(parent))?;
+            }
+            std::fs::copy(&game_subpath, path_gamesave.join(path))?;
+        } else if game_subpath.is_dir() {
+            std::fs::create_dir_all(path_gamesave.join(path))?;
+        }
+    }
 
-//     let copy_save_src = PathBuf::from(&h.path_handler).join("copy_to_profilesave");
-//     if copy_save_src.exists() {
-//         println!(
-//             "[partydeck] {} handler has built-in save data, copying...",
-//             h.uid
-//         );
-//         copy_dir_recursive(&copy_save_src, &path_gamesave)?;
-//     }
+    let profile_copy_gamesave = PathBuf::from(&h.path_handler).join("profile_copy_gamesave");
+    if profile_copy_gamesave.exists() {
+        copy_dir_recursive(&profile_copy_gamesave, &path_gamesave)?;
+    }
 
-//     println!("[partydeck] Save data directories created successfully");
-//     Ok(())
-// }
+    let profile_copy_home = PathBuf::from(&h.path_handler).join("profile_copy_home");
+    if profile_copy_home.exists() {
+        copy_dir_recursive(&profile_copy_home, &path_home)?;
+    }
+
+    let profile_copy_windata = PathBuf::from(&h.path_handler).join("profile_copy_windata");
+    if profile_copy_windata.exists() {
+        copy_dir_recursive(&profile_copy_windata, &path_windata)?;
+    }
+
+    println!("[partydeck] Profile save data created successfully");
+    Ok(())
+}
 
 // Gets a vector of all available profiles.
 // include_guest true for building the profile selector dropdown, false for the profile viewer.
