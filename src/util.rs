@@ -1,9 +1,10 @@
-use crate::paths::PATH_HOME;
+use crate::paths::{PATH_HOME, PATH_PARTY};
 
 use dialog::{Choice, DialogBox};
 use eframe::egui::TextBuffer;
 use rfd::FileDialog;
 use std::error::Error;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 pub fn msg(title: &str, contents: &str) {
@@ -110,6 +111,34 @@ pub fn get_installed_steamapps() -> Vec<Option<steamlocate::App>> {
     }
 
     return games;
+}
+
+pub fn fix_permissions(path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    let mut perms = std::fs::metadata(path)?.permissions();
+    perms.set_mode(0o777);
+    std::fs::set_permissions(path, perms)?;
+
+    Ok(())
+}
+
+pub fn clear_tmp() -> Result<(), Box<dyn Error>> {
+    let tmp = PATH_PARTY.join("tmp");
+    let Ok(entries) = std::fs::read_dir(&tmp) else {
+        return Err("Failed to read directory".into());
+    };
+
+    for entry_result in entries {
+        if let Ok(entry) = entry_result
+            && let Ok(file_type) = entry.file_type()
+            && file_type.is_dir()
+            && entry.file_name().to_string_lossy().starts_with("work")
+        {
+            fix_permissions(&entry.path().join("work"))?;
+        }
+    }
+
+    clear_tmp()?;
+    Ok(())
 }
 
 pub fn check_for_partydeck_update() -> bool {

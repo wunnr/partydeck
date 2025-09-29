@@ -1,14 +1,12 @@
 use crate::paths::*;
-use crate::util::{SanitizePath, copy_dir_recursive, zip_dir};
+use crate::util::*;
 
-use dialog::DialogBox;
 use eframe::egui::{self, ImageSource};
 use rfd::FileDialog;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs::File;
 use std::io::BufReader;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -175,9 +173,7 @@ impl Handler {
         // When bwrap uses a work folder it locks permissions, so we need to unlock them before removing the directory
         let workpath = self.path_handler.join("work").join("work");
         if workpath.exists() {
-            let mut perms = std::fs::metadata(&workpath)?.permissions();
-            perms.set_mode(0o777);
-            std::fs::set_permissions(&workpath, perms)?;
+            fix_permissions(&workpath)?;
         }
 
         std::fs::remove_dir_all(self.path_handler.clone())?;
@@ -298,7 +294,7 @@ impl Handler {
         std::fs::write(tmpdir.join("handler.json"), json)?;
 
         zip_dir(&tmpdir, &file)?;
-        std::fs::remove_dir_all(&tmpdir)?;
+        clear_tmp()?;
 
         Ok(())
     }
@@ -308,9 +304,8 @@ pub fn scan_handlers() -> Vec<Handler> {
     let mut out: Vec<Handler> = Vec::new();
     let handlers_path = PATH_PARTY.join("handlers");
 
-    let entries = match std::fs::read_dir(handlers_path) {
-        Ok(entries) => entries,
-        Err(_) => return out,
+    let Ok(entries) = std::fs::read_dir(handlers_path) else {
+        return out;
     };
 
     for entry_result in entries {
@@ -355,7 +350,7 @@ pub fn import_pd2() -> Result<(), Box<dyn Error>> {
 
     let handler_path = dir_tmp.join("handler.json");
     if !handler_path.exists() {
-        std::fs::remove_dir_all(&dir_tmp)?;
+        clear_tmp()?;
         return Err("handler.json not found in archive".into());
     }
 
@@ -384,7 +379,7 @@ pub fn import_pd2() -> Result<(), Box<dyn Error>> {
     };
 
     copy_dir_recursive(&dir_tmp, &path)?;
-    std::fs::remove_dir_all(&dir_tmp)?;
+    clear_tmp()?;
 
     Ok(())
 }

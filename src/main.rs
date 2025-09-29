@@ -13,6 +13,7 @@ use crate::handler::Handler;
 use crate::monitor::*;
 use crate::paths::PATH_PARTY;
 use crate::profiles::remove_guest_profiles;
+use crate::util::*;
 
 fn main() -> eframe::Result {
     // Our sdl/multimonitor stuff essentially depends on us running through x11.
@@ -106,7 +107,7 @@ fn main() -> eframe::Result {
     remove_guest_profiles().unwrap();
 
     if PATH_PARTY.join("tmp").exists() {
-        std::fs::remove_dir_all(PATH_PARTY.join("tmp")).unwrap();
+        clear_tmp().unwrap();
     }
 
     let scrheight = monitors[0].height();
