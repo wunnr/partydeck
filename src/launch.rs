@@ -6,7 +6,7 @@ use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::paths::*;
-use crate::profiles::create_profile;
+use crate::profiles::{create_profile, create_profile_gamesave};
 use crate::util::*;
 
 pub fn launch_game(
@@ -19,6 +19,9 @@ pub fn launch_game(
     for instance in instances {
         if instance.profname.starts_with(".") {
             create_profile(&instance.profname)?;
+        }
+        if h.is_saved_handler() {
+            create_profile_gamesave(&instance.profname, h)?;
         }
         println!(
             "  - Profile: {}, Monitor: {}, Resolution: {}x{}",
