@@ -27,6 +27,11 @@ pub fn launch_game(
     }
 
     std::fs::create_dir_all(PATH_PARTY.join("tmp"))?;
+    if h.path_handler.join("overlay").exists() {
+        for i in 0..instances.len() {
+            std::fs::create_dir_all(PATH_PARTY.join(format!("tmp/work-{i}")))?;
+        }
+    }
     if h.use_goldberg
         && let Some(appid) = h.steam_appid
         && let Some(steamdll) = h.locate_steamapi_path()
@@ -133,7 +138,7 @@ pub fn launch_cmds(
 
     for (i, instance) in instances.iter().enumerate() {
         let path_prof = &format!("{party}/profiles/{}", instance.profname.as_str());
-        //let path_save = &format!("{path_prof}/saves/{}", h.uid.as_str());
+        let path_save = &format!("{path_prof}/saves/{}", h.handler_dir_name());
         let path_pfx = match cfg.proton_separate_pfxs {
             true => &format!("{party}/pfx{}", i + 1),
             false => &format!("{party}/pfx"),
@@ -238,33 +243,36 @@ pub fn launch_cmds(
             cmd.args(["--overlay", &path_prof_home, &path_prof_work, &home]);
         }
 
-        // for subdir in &h.game_save_paths {
-        //     let path_prof_subdir = format!("{path_prof}/{subdir}");
-        //     let path_game_subdir = format!("{gamedir}/{subdir}");
-        //     cmd.args(["--bind", &path_prof_subdir, &path_game_subdir]);
-        // }
-
         if h.path_handler.join("overlay").exists() && h.path_handler.join("work").exists() {
             let path_overlay = h.path_handler.join("overlay");
-            let path_work = h.path_handler.join("work");
+            let path_work = PATH_PARTY.join("tmp").join(format!("work-{i}"));
             cmd.args(["--overlay-src", &gamedir]);
             cmd.args([
                 "--overlay",
                 &path_overlay.to_string_lossy(),
                 &path_work.to_string_lossy(),
-                &home,
+                &gamedir,
             ]);
         }
 
-        for subdir in &h.game_null_paths {
-            let path = PathBuf::from(gamedir.clone()).join(subdir);
-            if path.is_file() {
-                cmd.args(["--bind", "/dev/null", &path.to_string_lossy()]);
-            } else if path.is_dir() {
+        for subpath in &h.game_save_paths {
+            if subpath.is_empty() {
+                continue;
+            }
+            let prof_subpath = format!("{path_save}/{subpath}");
+            let game_subpath = format!("{gamedir}/{subpath}");
+            cmd.args(["--bind", &prof_subpath, &game_subpath]);
+        }
+
+        for subpath in &h.game_null_paths {
+            let game_subpath = PathBuf::from(gamedir.clone()).join(subpath);
+            if game_subpath.is_file() {
+                cmd.args(["--bind", "/dev/null", &game_subpath.to_string_lossy()]);
+            } else if game_subpath.is_dir() {
                 cmd.args([
                     "--bind",
                     &PATH_PARTY.join("tmp").to_string_lossy(),
-                    &path.to_string_lossy(),
+                    &game_subpath.to_string_lossy(),
                 ]);
             }
         }
