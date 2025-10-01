@@ -123,6 +123,11 @@ pub fn fix_permissions(path: &PathBuf) -> Result<(), Box<dyn Error>> {
 
 pub fn clear_tmp() -> Result<(), Box<dyn Error>> {
     let tmp = PATH_PARTY.join("tmp");
+
+    if !tmp.exists() {
+        return Ok(());
+    }
+
     let Ok(entries) = std::fs::read_dir(&tmp) else {
         return Err("Failed to read directory".into());
     };
@@ -137,7 +142,8 @@ pub fn clear_tmp() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    clear_tmp()?;
+    std::fs::remove_dir_all(&tmp)?;
+
     Ok(())
 }
 
