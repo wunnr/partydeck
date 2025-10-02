@@ -241,9 +241,14 @@ pub fn launch_cmds(
             cmd.args(["--bind", &format!("{path_prof}/windata"), &path_pfx_user]);
         } else {
             let path_prof_home = format!("{path_prof}/home");
-            let path_prof_work = format!("{path_prof}/work");
-            cmd.args(["--overlay-src", &home]);
-            cmd.args(["--overlay", &path_prof_home, &path_prof_work, &home]);
+            cmd.env("HOME", &path_prof_home);
+            if PATH_HOME.join(".steam").exists() {
+                cmd.args([
+                    "--bind",
+                    &PATH_HOME.join(".steam").to_string_lossy(),
+                    &format!("{path_prof_home}/.steam"),
+                ]);
+            }
         }
 
         if h.path_handler.join("overlay").exists() && h.path_handler.join("work").exists() {
@@ -310,7 +315,7 @@ pub fn launch_cmds(
                 format!("{path_pfx}/drive_c/users/steamuser/AppData/Roaming/GSE Saves");
             cmd.args(["--bind", &path_profile_gse, &path_gse_win]);
         } else {
-            let path_gse_linux = format!("{localshare}/GSE Saves");
+            let path_gse_linux = format!("{path_prof}/home/.local/share/GSE Saves");
             cmd.args(["--bind", &path_profile_gse, &path_gse_linux]);
         }
 
