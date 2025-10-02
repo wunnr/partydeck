@@ -137,6 +137,7 @@ pub fn clear_tmp() -> Result<(), Box<dyn Error>> {
             && let Ok(file_type) = entry.file_type()
             && file_type.is_dir()
             && entry.file_name().to_string_lossy().starts_with("work")
+            && entry.path().join("work").exists()
         {
             fix_permissions(&entry.path().join("work"))?;
         }
