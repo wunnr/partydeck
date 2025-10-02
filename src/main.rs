@@ -97,18 +97,13 @@ fn main() -> eframe::Result {
 
     let fullscreen = std::env::args().any(|arg| arg == "--fullscreen");
 
-    std::fs::create_dir_all(PATH_PARTY.join("gamesyms"))
-        .expect("Failed to create gamesyms directory");
     std::fs::create_dir_all(PATH_PARTY.join("handlers"))
         .expect("Failed to create handlers directory");
     std::fs::create_dir_all(PATH_PARTY.join("profiles"))
         .expect("Failed to create profiles directory");
 
     remove_guest_profiles().unwrap();
-
-    if PATH_PARTY.join("tmp").exists() {
-        clear_tmp().unwrap();
-    }
+    clear_tmp().unwrap();
 
     let scrheight = monitors[0].height();
 
