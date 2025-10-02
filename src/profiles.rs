@@ -15,7 +15,6 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
     let path_profile = PATH_PARTY.join(format!("profiles/{name}"));
     let path_steam = path_profile.join("steam/settings");
 
-    std::fs::create_dir_all(path_profile.join("work"))?;
     std::fs::create_dir_all(path_profile.join("windata/AppData/Local"))?;
     std::fs::create_dir_all(path_profile.join("windata/AppData/LocalLow"))?;
     std::fs::create_dir_all(path_profile.join("windata/AppData/Roaming"))?;
@@ -123,14 +122,6 @@ pub fn remove_guest_profiles() -> Result<(), Box<dyn Error>> {
         let name_str = name.to_string_lossy();
 
         if name_str.starts_with(".") {
-            // When bwrap uses a work folder it locks permissions, so we need to unlock them before removing the directory
-            let path = entry.path().join("work").join("work");
-            if path.exists() {
-                let mut perms = std::fs::metadata(&path)?.permissions();
-                perms.set_mode(0o777);
-                std::fs::set_permissions(&path, perms)?;
-            }
-
             std::fs::remove_dir_all(entry.path())?;
         }
     }
