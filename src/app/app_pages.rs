@@ -497,7 +497,7 @@ impl PartyApp {
             "Run instances in separate Proton prefixes",
         );
         if proton_separate_pfxs_check.hovered() {
-            self.infotext = "Runs each instance in its own Proton prefix. If unsure, leave this unchecked. This option will take up more space on the disk, but may also help with certain Proton-related issues such as only one instance of a game starting.".to_string();
+            self.infotext = "Runs each instance in separate Proton prefixes. If unsure, leave this checked. Multiple prefixes takes up more disk space, but generally provides better compatibility and fewer issues with Proton-based games.".to_string();
         }
 
         let allow_multiple_instances_on_same_device_check = ui.checkbox(
@@ -510,56 +510,29 @@ impl PartyApp {
 
         ui.separator();
 
-        ui.horizontal(|ui| {
         if ui.button("Erase Proton Prefix").clicked() {
-            if yesno("Erase Prefix?", "This will erase the Wine prefix used by PartyDeck. This shouldn't erase profile/game-specific data, but exercise caution. Are you sure?") && PATH_PARTY.join("gamesyms").exists() {
+            if yesno(
+                "Erase Prefix?",
+                "This will erase the Wine prefix used by PartyDeck. This shouldn't erase profile/game-specific data, but exercise caution. Are you sure?",
+            ) && PATH_PARTY.join("gamesyms").exists()
+            {
                 if let Err(err) = std::fs::remove_dir_all(PATH_PARTY.join("pfx")) {
                     msg("Error", &format!("Couldn't erase pfx data: {}", err));
-                }
-                else if let Err(err) = std::fs::create_dir_all(PATH_PARTY.join("pfx")) {
-                    msg("Error", &format!("Couldn't re-create pfx directory: {}", err));
-                }
-                else {
+                } else {
                     msg("Data Erased", "Proton prefix data successfully erased.");
                 }
             }
         }
 
-        if ui.button("Erase Symlink Data").clicked() {
-            if yesno("Erase Symlink Data?", "This will erase all game symlink data. This shouldn't erase profile/game-specific data, but exercise caution. Are you sure?") && PATH_PARTY.join("gamesyms").exists() {
-                if let Err(err) = std::fs::remove_dir_all(PATH_PARTY.join("gamesyms")) {
-                    msg("Error", &format!("Couldn't erase symlink data: {}", err));
-                }
-                else if let Err(err) = std::fs::create_dir_all(PATH_PARTY.join("gamesyms")) {
-                    msg("Error", &format!("Couldn't re-create symlink directory: {}", err));
-                }
-                else {
-                    msg("Data Erased", "Game symlink data successfully erased.");
-                }
+        if ui.button("Open PartyDeck Data Folder").clicked() {
+            if let Err(_) = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!("xdg-open {}/", PATH_PARTY.display()))
+                .status()
+            {
+                msg("Error", "Couldn't open PartyDeck Data Folder!");
             }
         }
-        });
-
-        ui.horizontal(|ui| {
-            if ui.button("Open PartyDeck Data Folder").clicked() {
-                if let Err(_) = std::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("xdg-open {}/", PATH_PARTY.display()))
-                    .status()
-                {
-                    msg("Error", "Couldn't open PartyDeck Data Folder!");
-                }
-            }
-            if ui.button("Edit game paths").clicked() {
-                if let Err(_) = std::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("xdg-open {}/paths.json", PATH_PARTY.display(),))
-                    .status()
-                {
-                    msg("Error", "Couldn't open paths.json!");
-                }
-            }
-        });
     }
 
     pub fn display_settings_gamescope(&mut self, ui: &mut Ui) {
