@@ -6,6 +6,7 @@ use rfd::FileDialog;
 use std::error::Error;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::process::Command;
 
 pub fn msg(title: &str, contents: &str) {
     let _ = dialog::Message::new(contents).title(title).show();
@@ -113,10 +114,24 @@ pub fn get_installed_steamapps() -> Vec<Option<steamlocate::App>> {
     return games;
 }
 
-pub fn fix_permissions(path: &PathBuf) -> Result<(), Box<dyn Error>> {
-    let mut perms = std::fs::metadata(path)?.permissions();
-    perms.set_mode(0o777);
-    std::fs::set_permissions(path, perms)?;
+pub fn fuse_overlayfs_unmount_gamedirs() -> Result<(), Box<dyn std::error::Error>> {
+    let tmp = PATH_PARTY.join("tmp");
+
+    let Ok(entries) = std::fs::read_dir(&tmp) else {
+        return Err("Failed to read directory".into());
+    };
+
+    for entry_result in entries {
+        if let Ok(entry) = entry_result
+            && entry.path().is_dir()
+            && entry.file_name().to_string_lossy().starts_with("game-")
+        {
+            let status = Command::new("umount").arg(entry.path()).status()?;
+            if !status.success() {
+                return Err(format!("Unmounting {} failed", entry.path().to_string_lossy()).into());
+            }
+        }
+    }
 
     Ok(())
 }
@@ -126,21 +141,6 @@ pub fn clear_tmp() -> Result<(), Box<dyn Error>> {
 
     if !tmp.exists() {
         return Ok(());
-    }
-
-    let Ok(entries) = std::fs::read_dir(&tmp) else {
-        return Err("Failed to read directory".into());
-    };
-
-    for entry_result in entries {
-        if let Ok(entry) = entry_result
-            && let Ok(file_type) = entry.file_type()
-            && file_type.is_dir()
-            && entry.file_name().to_string_lossy().starts_with("work")
-            && entry.path().join("work").exists()
-        {
-            fix_permissions(&entry.path().join("work"))?;
-        }
     }
 
     std::fs::remove_dir_all(&tmp)?;

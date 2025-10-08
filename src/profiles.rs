@@ -1,6 +1,5 @@
 use rand::prelude::*;
 use std::error::Error;
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 use crate::{handler::Handler, paths::*, util::copy_dir_recursive};
@@ -46,25 +45,7 @@ pub fn create_profile_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Er
     }
     println!("[partydeck] Creating game save {} for {}", uid, name);
 
-    for path in &h.game_save_paths {
-        if path.is_empty() {
-            continue;
-        }
-        let Ok(rootpath) = h.get_game_rootpath() else {
-            break;
-        };
-        let game_subpath = PathBuf::from(rootpath).join(path);
-        if game_subpath.is_file() {
-            if let Some(parent) = PathBuf::from(path).parent()
-                && !parent.as_os_str().is_empty()
-            {
-                std::fs::create_dir_all(path_gamesave.join(parent))?;
-            }
-            std::fs::copy(&game_subpath, path_gamesave.join(path))?;
-        } else if game_subpath.is_dir() {
-            std::fs::create_dir_all(path_gamesave.join(path))?;
-        }
-    }
+    std::fs::create_dir_all(&path_gamesave)?;
 
     let profile_copy_gamesave = PathBuf::from(&h.path_handler).join("profile_copy_gamesave");
     if profile_copy_gamesave.exists() {

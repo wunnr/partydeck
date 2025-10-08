@@ -35,7 +35,6 @@ pub struct Handler {
     pub steam_appid: Option<u32>,
 
     pub game_null_paths: Vec<String>,
-    pub game_save_paths: Vec<String>,
 }
 
 impl Default for Handler {
@@ -61,7 +60,6 @@ impl Default for Handler {
             steam_appid: None,
 
             game_null_paths: Vec::new(),
-            game_save_paths: Vec::new(),
         }
     }
 }
@@ -78,9 +76,6 @@ impl Handler {
         handler.img_paths = handler.get_imgs();
 
         for path in &mut handler.game_null_paths {
-            *path = path.sanitize_path();
-        }
-        for path in &mut handler.game_save_paths {
             *path = path.sanitize_path();
         }
 
@@ -109,7 +104,6 @@ impl Handler {
             steam_appid: None,
 
             game_null_paths: Vec::new(),
-            game_save_paths: Vec::new(),
         }
     }
 
@@ -169,13 +163,6 @@ impl Handler {
             return Err("No handler directory to remove".into());
         }
         // TODO: Also return err if handler path exists but is not inside PATH_PARTY/handlers
-
-        // When bwrap uses a work folder it locks permissions, so we need to unlock them before removing the directory
-        let workpath = self.path_handler.join("work").join("work");
-        if workpath.exists() {
-            fix_permissions(&workpath)?;
-        }
-
         std::fs::remove_dir_all(self.path_handler.clone())?;
 
         Ok(())
@@ -191,7 +178,7 @@ impl Handler {
         };
 
         if let Ok(rootpath) = self.get_game_rootpath() {
-            let walk_path = walkdir::WalkDir::new(rootpath)
+            let walk_path = walkdir::WalkDir::new(&rootpath)
                 .min_depth(1)
                 .follow_links(false);
 
@@ -200,8 +187,9 @@ impl Handler {
                     && entry.file_type().is_file()
                     && let Some(path_str) = entry.path().to_str()
                     && path_str.ends_with(dllname)
+                    && let Ok(relative_path) = entry.path().strip_prefix(&rootpath)
                 {
-                    return Some(entry.path().to_path_buf());
+                    return Some(relative_path.to_path_buf());
                 }
             }
         }

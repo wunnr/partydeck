@@ -29,15 +29,11 @@ pub fn launch_game(
         );
     }
 
-    std::fs::create_dir_all(PATH_PARTY.join("tmp"))?;
-    if h.path_handler.join("overlay").exists() {
-        for i in 0..instances.len() {
-            std::fs::create_dir_all(PATH_PARTY.join(format!("tmp/work-{i}")))?;
-        }
-    }
+    fuse_overlayfs_mount_gamedirs(h, instances)?;
+
     if h.use_goldberg
         && let Some(appid) = h.steam_appid
-        && let Some(steamdll) = h.locate_steamapi_path()
+        && let Some(steamdll_relative) = h.locate_steamapi_path()
     {
         std::fs::create_dir_all(PATH_PARTY.join("tmp/steam_settings"))?;
 
@@ -50,8 +46,9 @@ pub fn launch_game(
             true => PATH_RES.join("goldberg/generate_interfaces_x32"),
             false => PATH_RES.join("goldberg/generate_interfaces_x64"),
         };
+        let path_dll = PathBuf::from(h.get_game_rootpath()?).join(steamdll_relative);
         let status = std::process::Command::new(gen_interfaces)
-            .arg(steamdll)
+            .arg(path_dll)
             .current_dir(PATH_PARTY.join("tmp/steam_settings"))
             .status()?;
         if !status.success() {
@@ -74,13 +71,10 @@ pub fn launch_game(
 
     let mut handles = Vec::new();
 
-    let mut sleep_time = match h.win() {
-        true => 6.0,
-        false => 0.5,
+    let sleep_time = match h.pause_between_starts {
+        Some(f) => f,
+        None => 0.5,
     };
-    if let Some(f) = h.pause_between_starts {
-        sleep_time = f;
-    }
 
     let mut i = 0;
     for mut cmd in new_cmds {
@@ -106,13 +100,10 @@ pub fn launch_cmds(
     instances: &Vec<Instance>,
     cfg: &PartyConfig,
 ) -> Result<Vec<std::process::Command>, Box<dyn std::error::Error>> {
-    let home = PATH_HOME.to_string_lossy();
-    let localshare = PATH_LOCAL_SHARE.to_string_lossy();
     let party = PATH_PARTY.to_string_lossy();
     let steam = PATH_STEAM.to_string_lossy();
 
     let win = h.win();
-    let gamedir = h.get_game_rootpath()?;
     let exec = h.exec.as_str();
     let runtime = h.runtime.as_str();
     let gamescope = match cfg.kbm_support {
@@ -120,9 +111,6 @@ pub fn launch_cmds(
         false => "gamescope",
     };
 
-    if !PathBuf::from(&gamedir).join(exec).exists() {
-        return Err(format!("Executable not found: {gamedir}/{exec}").into());
-    }
     if (runtime == "scout"
         && !PATH_STEAM
             .join("steamapps/common/SteamLinuxRuntime_soldier")
@@ -140,16 +128,19 @@ pub fn launch_cmds(
         .collect();
 
     for (i, instance) in instances.iter().enumerate() {
+        let gamedir = format!("{party}/tmp/game-{i}");
+
+        if !PathBuf::from(&gamedir).join(exec).exists() {
+            return Err(format!("Executable not found: {gamedir}/{exec}").into());
+        }
+
         let path_prof = &format!("{party}/profiles/{}", instance.profname.as_str());
-        let path_save = &format!("{path_prof}/saves/{}", h.handler_dir_name());
         let path_pfx = match cfg.proton_separate_pfxs {
-            true => &format!("{party}/pfx{}", i + 1),
-            false => &format!("{party}/pfx"),
+            true => &format!("{party}/prefixes/{}", i + 1),
+            false => &format!("{party}/prefixes/1"),
         };
 
         let cmd = &mut cmds[i];
-
-        cmd.current_dir(&gamedir);
 
         cmd.env("SDL_JOYSTICK_HIDAPI", "0");
         cmd.env("ENABLE_GAMESCOPE_WSI", "0");
@@ -236,40 +227,32 @@ pub fn launch_cmds(
                 cmd.args(["--bind", "/dev/null", path]);
             }
         }
+
         if win {
             let path_pfx_user = format!("{path_pfx}/drive_c/users/steamuser");
             cmd.args(["--bind", &format!("{path_prof}/windata"), &path_pfx_user]);
         } else {
             let path_prof_home = format!("{path_prof}/home");
             cmd.env("HOME", &path_prof_home);
+            // Steam runtime looks in HOME/.steam directory
             if PATH_HOME.join(".steam").exists() {
                 cmd.args([
                     "--bind",
                     &PATH_HOME.join(".steam").to_string_lossy(),
                     &format!("{path_prof_home}/.steam"),
                 ]);
+            } else if PATH_HOME
+                .join(".var/app/com.valvesoftware.Steam/.steam/steam")
+                .exists()
+            {
+                cmd.args([
+                    "--bind",
+                    &PATH_HOME
+                        .join(".var/app/com.valvesoftware.Steam/.steam/steam")
+                        .to_string_lossy(),
+                    &format!("{path_prof_home}/.steam"),
+                ]);
             }
-        }
-
-        if h.path_handler.join("overlay").exists() && h.path_handler.join("work").exists() {
-            let path_overlay = h.path_handler.join("overlay");
-            let path_work = PATH_PARTY.join("tmp").join(format!("work-{i}"));
-            cmd.args(["--overlay-src", &gamedir]);
-            cmd.args([
-                "--overlay",
-                &path_overlay.to_string_lossy(),
-                &path_work.to_string_lossy(),
-                &gamedir,
-            ]);
-        }
-
-        for subpath in &h.game_save_paths {
-            if subpath.is_empty() {
-                continue;
-            }
-            let prof_subpath = format!("{path_save}/{subpath}");
-            let game_subpath = format!("{gamedir}/{subpath}");
-            cmd.args(["--bind", &prof_subpath, &game_subpath]);
         }
 
         for subpath in &h.game_null_paths {
@@ -279,14 +262,14 @@ pub fn launch_cmds(
             } else if game_subpath.is_dir() {
                 cmd.args([
                     "--bind",
-                    &PATH_PARTY.join("tmp").to_string_lossy(),
+                    &PATH_PARTY.join("tmp/null").to_string_lossy(),
                     &game_subpath.to_string_lossy(),
                 ]);
             }
         }
 
         if h.use_goldberg {
-            if let Some(dest) = h.locate_steamapi_path() {
+            if let Some(subpath) = h.locate_steamapi_path() {
                 let src = match &h.win() {
                     true => match &h.is32bit {
                         true => PATH_RES.join("goldberg/steam_api.dll"),
@@ -297,6 +280,7 @@ pub fn launch_cmds(
                         false => PATH_RES.join("goldberg/libsteam_api64.so"),
                     },
                 };
+                let dest = PathBuf::from(&gamedir).join(subpath);
                 cmd.args(["--bind", &src.to_string_lossy(), &dest.to_string_lossy()]);
 
                 if let Some(parent) = dest.parent() {
@@ -319,16 +303,17 @@ pub fn launch_cmds(
             cmd.args(["--bind", &path_profile_gse, &path_gse_linux]);
         }
 
+        let path_exec = PathBuf::from(&gamedir).join(exec);
+        let cwd = path_exec.parent().ok_or_else(|| "couldn't get parent")?;
+        cmd.args(["--chdir", &cwd.to_string_lossy()]);
+
         // Runtime
         if win {
             cmd.arg(format!("{}", BIN_UMU_RUN.to_string_lossy()));
         } else {
             match runtime {
                 "scout" => {
-                    cmd.arg(format!(
-                        "{steam}/steamapps/common/SteamLinuxRuntime/scout-on-soldier-entry-point-v2"
-                    ));
-                    cmd.arg("--");
+                    cmd.arg(format!("{steam}/ubuntu12_32/steam-runtime/run.sh"));
                 }
                 "soldier" => {
                     cmd.arg(format!(
@@ -393,4 +378,70 @@ fn print_launch_cmds(cmds: &Vec<Command>) {
 
         println!("\n[partydeck] ---------------------");
     }
+}
+
+pub fn fuse_overlayfs_mount_gamedirs(
+    h: &Handler,
+    instances: &Vec<Instance>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let tmp = format!("{}/tmp", PATH_PARTY.to_string_lossy());
+    let mut path_lowerdir = h.get_game_rootpath()?;
+
+    if h.path_handler.join("overlay").exists() {
+        path_lowerdir = format!(
+            "{}:{}",
+            h.path_handler.join("overlay").to_string_lossy(),
+            path_lowerdir
+        );
+    }
+
+    let gamename = if h.is_saved_handler() {
+        h.handler_dir_name().to_string()
+    } else {
+        let dir = PathBuf::from(&path_lowerdir);
+        dir.file_name()
+            .ok_or_else(|| "No filename")?
+            .to_string_lossy()
+            .to_string()
+    };
+
+    let mut cmds: Vec<Command> = (0..instances.len())
+        .map(|_| Command::new("fuse-overlayfs"))
+        .collect();
+
+    for i in 0..instances.len() {
+        let cmd = &mut cmds[i];
+        let instance = &instances[i];
+
+        let path_game_mnt = format!("{tmp}/game-{i}");
+        let path_workdir = format!("{tmp}/work-{i}");
+        let path_prof = &format!(
+            "{}/profiles/{}",
+            PATH_PARTY.to_string_lossy(),
+            instance.profname.as_str()
+        );
+        let path_upperdir = &format!("{path_prof}/gamesaves/{gamename}");
+
+        std::fs::create_dir_all(&path_game_mnt)?;
+        std::fs::create_dir_all(&path_workdir)?;
+
+        cmd.args(&[
+            "-o",
+            &format!("lowerdir={}", path_lowerdir),
+            "-o",
+            &format!("upperdir={}", path_upperdir),
+            "-o",
+            &format!("workdir={}", path_workdir),
+            &path_game_mnt,
+        ]);
+    }
+
+    for cmd in &mut cmds {
+        let status = cmd.status()?;
+        if !status.success() {
+            return Err("fuse-overlayfs mount failed.".into());
+        }
+    }
+
+    Ok(())
 }
