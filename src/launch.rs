@@ -29,7 +29,9 @@ pub fn launch_game(
         );
     }
 
-    fuse_overlayfs_mount_gamedirs(h, instances)?;
+    if h.is_saved_handler() {
+        fuse_overlayfs_mount_gamedirs(h, instances)?;
+    }
 
     if h.use_goldberg
         && let Some(appid) = h.steam_appid
@@ -100,15 +102,12 @@ pub fn launch_cmds(
     instances: &Vec<Instance>,
     cfg: &PartyConfig,
 ) -> Result<Vec<std::process::Command>, Box<dyn std::error::Error>> {
-    let party = PATH_PARTY.to_string_lossy();
-    let steam = PATH_STEAM.to_string_lossy();
-
     let win = h.win();
-    let exec = h.exec.as_str();
+    let exec = Path::new(&h.exec);
     let runtime = h.runtime.as_str();
     let gamescope = match cfg.kbm_support {
-        true => &format!("{}", BIN_GSC_KBM.to_string_lossy()),
-        false => "gamescope",
+        true => BIN_GSC_KBM.as_path(),
+        false => Path::new("gamescope"),
     };
 
     if (runtime == "scout"
@@ -128,17 +127,23 @@ pub fn launch_cmds(
         .collect();
 
     for (i, instance) in instances.iter().enumerate() {
-        let gamedir = format!("{party}/tmp/game-{i}");
+        let gamedir = if h.is_saved_handler() {
+            PATH_PARTY.join("tmp").join(format!("game-{}", i))
+        } else {
+            PathBuf::from(h.get_game_rootpath()?)
+        };
 
-        if !PathBuf::from(&gamedir).join(exec).exists() {
-            return Err(format!("Executable not found: {gamedir}/{exec}").into());
+        if !gamedir.join(exec).exists() {
+            return Err(format!("Executable not found: {}", gamedir.join(exec).display()).into());
         }
 
-        let path_prof = &format!("{party}/profiles/{}", instance.profname.as_str());
-        let path_pfx = match cfg.proton_separate_pfxs {
-            true => &format!("{party}/prefixes/{}", i + 1),
-            false => &format!("{party}/prefixes/1"),
-        };
+        let path_prof = PATH_PARTY.join("profiles").join(&instance.profname);
+        let path_pfx = PATH_PARTY
+            .join("prefixes")
+            .join(match cfg.proton_separate_pfxs {
+                true => (i + 1).to_string(),
+                false => "1".to_string(),
+            });
 
         let cmd = &mut cmds[i];
 
@@ -146,26 +151,24 @@ pub fn launch_cmds(
         cmd.env("ENABLE_GAMESCOPE_WSI", "0");
         cmd.env("PROTON_DISABLE_HIDRAW", "1");
         if cfg.force_sdl && !win {
-            let path_sdl = match h.is32bit {
-                true => "/ubuntu12_32/steam-runtime/usr/lib/i386-linux-gnu/libSDL2-2.0.so.0",
-                false => "/ubuntu12_32/steam-runtime/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0",
-            };
-
-            cmd.env("SDL_DYNAMIC_API", &format!("{steam}/{path_sdl}"));
+            let path_sdl = PATH_STEAM.join(match h.is32bit {
+                true => "ubuntu12_32/steam-runtime/usr/lib/i386-linux-gnu/libSDL2-2.0.so.0",
+                false => "ubuntu12_32/steam-runtime/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0",
+            });
+            cmd.env("SDL_DYNAMIC_API", path_sdl);
         }
         if win {
             let protonpath = match cfg.proton_version.is_empty() {
                 true => "GE-Proton",
-                false => cfg.proton_version.as_str(),
+                false => &cfg.proton_version,
             };
 
-            cmd.env("WINEPREFIX", path_pfx);
+            cmd.env("WINEPREFIX", &path_pfx);
             cmd.env("PROTON_VERB", "run");
-            cmd.env("PROTONPATH", &protonpath);
+            cmd.env("PROTONPATH", protonpath);
 
             if !h.env.is_empty() {
-                let env_vars: Vec<&str> = h.env.split_whitespace().collect();
-                for env_var in env_vars {
+                for env_var in h.env.split_whitespace() {
                     if let Some((key, value)) = env_var.split_once('=') {
                         cmd.env(key, value);
                     }
@@ -182,22 +185,22 @@ pub fn launch_cmds(
         ]);
         if cfg.gamescope_sdl_backend {
             cmd.arg("--backend=sdl");
-            cmd.arg(&format!("--display-index={}", instance.monitor));
+            cmd.arg(format!("--display-index={}", instance.monitor));
         }
         if cfg.kbm_support {
             let mut instance_has_keyboard = false;
             let mut instance_has_mouse = false;
             let mut kbms = String::new();
 
-            for d in &instance.devices {
-                let dev_type = input_devices[*d].device_type;
-                if dev_type == DeviceType::Keyboard {
+            for &d in &instance.devices {
+                let dev = &input_devices[d];
+                if dev.device_type == DeviceType::Keyboard {
                     instance_has_keyboard = true;
-                } else if dev_type == DeviceType::Mouse {
+                } else if dev.device_type == DeviceType::Mouse {
                     instance_has_mouse = true;
                 }
-                if dev_type == DeviceType::Keyboard || dev_type == DeviceType::Mouse {
-                    kbms.push_str(&format!("{},", input_devices[*d].path));
+                if dev.device_type == DeviceType::Keyboard || dev.device_type == DeviceType::Mouse {
+                    kbms.push_str(&format!("{},", &dev.path));
                 }
             }
 
@@ -208,7 +211,7 @@ pub fn launch_cmds(
                 cmd.arg("--backend-disable-mouse");
             }
             if !kbms.is_empty() {
-                cmd.arg(&format!("--libinput-hold-dev={}", kbms));
+                cmd.arg(format!("--libinput-hold-dev={}", kbms));
             }
         }
         cmd.arg("--");
@@ -223,40 +226,39 @@ pub fn launch_cmds(
             if !dev.enabled
                 || (!instance.devices.contains(&d) && dev.device_type == DeviceType::Gamepad)
             {
-                let path = &dev.path;
-                cmd.args(["--bind", "/dev/null", path]);
+                cmd.args(["--bind", "/dev/null", &dev.path]);
             }
         }
 
         if win {
-            let path_pfx_user = format!("{path_pfx}/drive_c/users/steamuser");
-            cmd.args(["--bind", &format!("{path_prof}/windata"), &path_pfx_user]);
+            let path_pfx_user = path_pfx.join("drive_c/users/steamuser");
+            cmd.arg("--bind")
+                .args([&path_prof.join("windata"), &path_pfx_user]);
         } else {
-            let path_prof_home = format!("{path_prof}/home");
+            let path_prof_home = path_prof.join("home");
             cmd.env("HOME", &path_prof_home);
             // Steam runtime looks in HOME/.steam directory
-            if PATH_HOME.join(".steam").exists() {
-                cmd.args([
-                    "--bind",
-                    &PATH_HOME.join(".steam").to_string_lossy(),
-                    &format!("{path_prof_home}/.steam"),
-                ]);
+            let steam_path = if PATH_HOME.join(".steam").exists() {
+                Some(PATH_HOME.join(".steam"))
             } else if PATH_HOME
                 .join(".var/app/com.valvesoftware.Steam/.steam/steam")
                 .exists()
             {
+                Some(PATH_HOME.join(".var/app/com.valvesoftware.Steam/.steam/steam"))
+            } else {
+                None
+            };
+            if let Some(path) = steam_path {
                 cmd.args([
                     "--bind",
-                    &PATH_HOME
-                        .join(".var/app/com.valvesoftware.Steam/.steam/steam")
-                        .to_string_lossy(),
-                    &format!("{path_prof_home}/.steam"),
+                    &path.to_string_lossy(),
+                    &path_prof_home.join(".steam").to_string_lossy(),
                 ]);
             }
         }
 
         for subpath in &h.game_null_paths {
-            let game_subpath = PathBuf::from(gamedir.clone()).join(subpath);
+            let game_subpath = gamedir.join(subpath);
             if game_subpath.is_file() {
                 cmd.args(["--bind", "/dev/null", &game_subpath.to_string_lossy()]);
             } else if game_subpath.is_dir() {
@@ -270,17 +272,13 @@ pub fn launch_cmds(
 
         if h.use_goldberg {
             if let Some(subpath) = h.locate_steamapi_path() {
-                let src = match &h.win() {
-                    true => match &h.is32bit {
-                        true => PATH_RES.join("goldberg/steam_api.dll"),
-                        false => PATH_RES.join("goldberg/steam_api64.dll"),
-                    },
-                    false => match &h.is32bit {
-                        true => PATH_RES.join("goldberg/libsteam_api.so"),
-                        false => PATH_RES.join("goldberg/libsteam_api64.so"),
-                    },
-                };
-                let dest = PathBuf::from(&gamedir).join(subpath);
+                let src = PATH_RES.join("goldberg").join(match (h.win(), h.is32bit) {
+                    (true, true) => "steam_api.dll",
+                    (true, false) => "steam_api64.dll",
+                    (false, true) => "libsteam_api.so",
+                    (false, false) => "libsteam_api64.so",
+                });
+                let dest = gamedir.join(subpath);
                 cmd.args(["--bind", &src.to_string_lossy(), &dest.to_string_lossy()]);
 
                 if let Some(parent) = dest.parent() {
@@ -293,55 +291,55 @@ pub fn launch_cmds(
             }
         }
 
-        let path_profile_gse = format!("{path_prof}/steam");
+        let path_profile_gse = path_prof.join("steam");
         if win {
-            let path_gse_win =
-                format!("{path_pfx}/drive_c/users/steamuser/AppData/Roaming/GSE Saves");
-            cmd.args(["--bind", &path_profile_gse, &path_gse_win]);
+            let path_gse_win = path_pfx.join("drive_c/users/steamuser/AppData/Roaming/GSE Saves");
+            cmd.arg("--bind").args([&path_profile_gse, &path_gse_win]);
         } else {
-            let path_gse_linux = format!("{path_prof}/home/.local/share/GSE Saves");
-            cmd.args(["--bind", &path_profile_gse, &path_gse_linux]);
+            let path_gse_linux = path_prof.join("home/.local/share/GSE Saves");
+            cmd.arg("--bind").args([&path_profile_gse, &path_gse_linux]);
         }
 
-        let path_exec = PathBuf::from(&gamedir).join(exec);
+        let path_exec = gamedir.join(exec);
         let cwd = path_exec.parent().ok_or_else(|| "couldn't get parent")?;
-        cmd.args(["--chdir", &cwd.to_string_lossy()]);
+        cmd.arg("--chdir").arg(cwd);
 
         // Runtime
         if win {
-            cmd.arg(format!("{}", BIN_UMU_RUN.to_string_lossy()));
+            cmd.arg(&*BIN_UMU_RUN);
         } else {
             match runtime {
                 "scout" => {
-                    cmd.arg(format!("{steam}/ubuntu12_32/steam-runtime/run.sh"));
+                    cmd.arg(PATH_STEAM.join("ubuntu12_32/steam-runtime/run.sh"));
                 }
                 "soldier" => {
-                    cmd.arg(format!(
-                        "{steam}/steamapps/common/SteamLinuxRuntime_soldier/_v2-entry-point"
-                    ));
+                    cmd.arg(
+                        PATH_STEAM
+                            .join("steamapps/common/SteamLinuxRuntime_soldier/_v2-entry-point"),
+                    );
                     cmd.arg("--");
                 }
                 _ => {}
             };
         }
 
-        cmd.arg(format!("{gamedir}/{exec}"));
+        cmd.arg(&path_exec);
 
-        let split_args: Vec<String> = h.args.split_whitespace().map(|s| s.to_string()).collect();
-        for arg in split_args {
-            let arg = match arg.as_str() {
-                "$GAMEDIR" => &gamedir,
-                "$PROFILE" => instance.profname.as_str(),
-                "$WIDTH" => &format!("{}", instance.width),
-                "$HEIGHT" => &format!("{}", instance.height),
+        let gamedir_str = gamedir.to_string_lossy();
+        for arg in h.args.split_whitespace() {
+            let processed_arg = match arg {
+                "$GAMEDIR" => gamedir_str.as_ref(),
+                "$PROFILE" => &instance.profname,
+                "$WIDTH" => &instance.width.to_string(),
+                "$HEIGHT" => &instance.height.to_string(),
                 "$RESOLUTION" => &format!("{}x{}", instance.width, instance.height),
-                _ => &arg.sanitize_path(),
+                _ => &String::from(arg).sanitize_path(),
             };
-            cmd.arg(arg);
+            cmd.arg(processed_arg);
         }
     }
 
-    return Ok(cmds);
+    Ok(cmds)
 }
 
 fn print_launch_cmds(cmds: &Vec<Command>) {
@@ -384,56 +382,38 @@ pub fn fuse_overlayfs_mount_gamedirs(
     h: &Handler,
     instances: &Vec<Instance>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let tmp = format!("{}/tmp", PATH_PARTY.to_string_lossy());
+    let tmp_dir = PATH_PARTY.join("tmp");
     let mut path_lowerdir = h.get_game_rootpath()?;
 
-    if h.path_handler.join("overlay").exists() {
-        path_lowerdir = format!(
-            "{}:{}",
-            h.path_handler.join("overlay").to_string_lossy(),
-            path_lowerdir
-        );
+    let overlay_path = h.path_handler.join("overlay");
+    if overlay_path.exists() {
+        path_lowerdir = format!("{}:{}", overlay_path.display(), path_lowerdir);
     }
 
-    let gamename = if h.is_saved_handler() {
-        h.handler_dir_name().to_string()
-    } else {
-        let dir = PathBuf::from(&path_lowerdir);
-        dir.file_name()
-            .ok_or_else(|| "No filename")?
-            .to_string_lossy()
-            .to_string()
-    };
+    let gamename = h.handler_dir_name().to_string();
 
     let mut cmds: Vec<Command> = (0..instances.len())
         .map(|_| Command::new("fuse-overlayfs"))
         .collect();
 
-    for i in 0..instances.len() {
+    for (i, instance) in instances.iter().enumerate() {
         let cmd = &mut cmds[i];
-        let instance = &instances[i];
 
-        let path_game_mnt = format!("{tmp}/game-{i}");
-        let path_workdir = format!("{tmp}/work-{i}");
-        let path_prof = &format!(
-            "{}/profiles/{}",
-            PATH_PARTY.to_string_lossy(),
-            instance.profname.as_str()
-        );
-        let path_upperdir = &format!("{path_prof}/gamesaves/{gamename}");
+        let path_game_mnt = tmp_dir.join(format!("game-{}", i));
+        let path_workdir = tmp_dir.join(format!("work-{}", i));
+        let path_prof = PATH_PARTY.join("profiles").join(&instance.profname);
+        let path_upperdir = path_prof.join("gamesaves").join(&gamename);
 
         std::fs::create_dir_all(&path_game_mnt)?;
         std::fs::create_dir_all(&path_workdir)?;
 
-        cmd.args(&[
-            "-o",
-            &format!("lowerdir={}", path_lowerdir),
-            "-o",
-            &format!("upperdir={}", path_upperdir),
-            "-o",
-            &format!("workdir={}", path_workdir),
-            &path_game_mnt,
-        ]);
+        cmd.arg("-o");
+        cmd.arg(format!("lowerdir={}", path_lowerdir));
+        cmd.arg("-o");
+        cmd.arg(format!("upperdir={}", path_upperdir.display()));
+        cmd.arg("-o");
+        cmd.arg(format!("workdir={}", path_workdir.display()));
+        cmd.arg(&path_game_mnt);
     }
 
     for cmd in &mut cmds {
