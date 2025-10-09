@@ -82,11 +82,14 @@ impl Handler {
         Ok(handler)
     }
 
-    pub fn from_cli(exec: &str, args: &str) -> Self {
+    pub fn from_cli(path_exec: &str, args: &str) -> Self {
         Self {
             path_handler: PathBuf::new(),
             img_paths: Vec::new(),
-            path_gameroot: String::new(),
+            path_gameroot: Path::new(path_exec)
+                .parent()
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap(),
 
             name: String::new(),
             author: String::new(),
@@ -95,9 +98,12 @@ impl Handler {
 
             runtime: String::new(),
             is32bit: false,
-            exec: exec.to_string(),
+            exec: Path::new(path_exec)
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())
+                .unwrap(),
             env: String::new(),
-            args: args.split_whitespace().map(|s| s.to_string()).collect(),
+            args: args.to_string(),
             pause_between_starts: None,
 
             use_goldberg: false,
@@ -224,7 +230,15 @@ impl Handler {
         // If handler has no path, assume we're saving a newly created handler
         if !self.is_saved_handler() {
             if self.name.is_empty() {
-                return Err("Name cannot be empty".into());
+                // If handler is based on a Steam game try to get the game's install dir name
+                if let Some(appid) = self.steam_appid
+                    && let Ok(dir) = steamlocate::SteamDir::locate()
+                    && let Ok(Some((app, _))) = dir.find_app(appid)
+                {
+                    self.name = app.install_dir;
+                } else {
+                    return Err("Name cannot be empty".into());
+                }
             }
             if !PATH_PARTY.join("handlers").join(&self.name).exists() {
                 self.path_handler = PATH_PARTY.join("handlers").join(&self.name);
