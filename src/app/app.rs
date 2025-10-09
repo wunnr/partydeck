@@ -71,9 +71,9 @@ impl PartyApp {
             None => MenuPage::Home,
         };
 
-        Self {
+        let mut app = Self {
             installed_steamapps: get_installed_steamapps(),
-            needs_update: check_for_partydeck_update(),
+            needs_update: false,
             options,
             cur_page,
             settings_page: SettingsPage::General,
@@ -90,7 +90,13 @@ impl PartyApp {
             loading_msg: None,
             loading_since: None,
             task: None,
-        }
+        };
+
+        app.spawn_task("Checking for updates", move || {
+            app.needs_update = check_for_partydeck_update();
+        });
+
+        app
     }
 }
 
@@ -206,6 +212,10 @@ impl PartyApp {
 
     pub fn is_lite(&self) -> bool {
         self.handler_lite.is_some()
+    }
+
+    fn check_for_update(&mut self) {
+        self.needs_update = check_for_partydeck_update();
     }
 
     fn handle_gamepad_gui(&mut self, raw_input: &mut egui::RawInput) {
