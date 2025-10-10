@@ -1,15 +1,18 @@
 use super::app::{MenuPage, PartyApp};
-use crate::game::{Game::*, *};
+use crate::Handler;
+use crate::handler::import_pd2;
+use crate::handler::scan_handlers;
 use crate::input::*;
-use crate::paths::*;
+use crate::profiles::scan_profiles;
 use crate::util::*;
 
+use eframe::egui::Popup;
 use eframe::egui::RichText;
 use eframe::egui::{self, Ui};
 
-macro_rules! cur_game {
+macro_rules! cur_handler {
     ($self:expr) => {
-        &$self.games[$self.selected_game]
+        &$self.handlers[$self.selected_handler]
     };
 }
 
@@ -19,7 +22,16 @@ impl PartyApp {
             ui.add(
                 egui::Image::new(egui::include_image!("../../res/BTN_EAST.png")).max_height(12.0),
             );
-            ui.selectable_value(&mut self.cur_page, MenuPage::Home, "Home");
+
+            let hometext = match self.is_lite() {
+                true => "Play",
+                false => "Home",
+            };
+            let homepage = match self.is_lite() {
+                true => MenuPage::Instances,
+                false => MenuPage::Home,
+            };
+            ui.selectable_value(&mut self.cur_page, homepage, hometext);
             ui.add(
                 egui::Image::new(egui::include_image!("../../res/BTN_NORTH.png")).max_height(12.0),
             );
@@ -73,18 +85,18 @@ impl PartyApp {
             ui.heading("Games");
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("➕").clicked() {
-                    if let Err(err) = add_game() {
-                        println!("[partydeck] Couldn't add game: {err}");
-                        msg("Error", &format!("Couldn't add game: {err}"));
+                    self.handler_edit = Some(Handler::default());
+                    self.cur_page = MenuPage::EditHandler;
+                }
+                if ui.button("⬇").clicked() {
+                    if let Err(e) = import_pd2() {
+                        msg("Error", &format!("Error importing PD2: {}", e));
+                    } else {
+                        self.handlers = scan_handlers();
                     }
-                    let dir_tmp = PATH_PARTY.join("tmp");
-                    if dir_tmp.exists() {
-                        std::fs::remove_dir_all(&dir_tmp).unwrap();
-                    }
-                    self.games = crate::game::scan_all_games();
                 }
                 if ui.button("🔄").clicked() {
-                    self.games = crate::game::scan_all_games();
+                    self.handlers = scan_handlers();
                 }
             });
         });
@@ -103,19 +115,19 @@ impl PartyApp {
                 }
                 match self.cur_page {
                     MenuPage::Game => {
-                        match cur_game!(self){
-                            Game::ExecRef(e) =>
-                                self.infotext = format!("{}", e.path().display()),
-                            Game::HandlerRef(h) =>
-                                self.infotext = h.info.to_owned(),
-                        }
+                        self.infotext = cur_handler!(self).info.to_owned();
                     }
-                    MenuPage::Profiles =>
-                        self.infotext = "Create profiles to persistently store game save data, settings, and stats.".to_string(),
+                    MenuPage::Profiles => {
+                        self.infotext = "Create profiles to persistently store game save data, settings, and stats.".to_string();
+                    }
                     _ => {}
                 }
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    ui.label(&self.infotext);
+                    if self.cur_page == MenuPage::EditHandler && let Some(handler) = &mut self.handler_edit {
+                        ui.add(egui::TextEdit::multiline(&mut handler.info).hint_text("Put game info/instructions here"));
+                    } else {
+                        ui.label(&self.infotext);
+                    }
                 });
             });
     }
@@ -160,16 +172,21 @@ impl PartyApp {
     }
 
     pub fn panel_left_game_list(&mut self, ui: &mut Ui) {
-        let mut refresh_games = false;
+        for i in 0..self.handlers.len() {
+            // Skip if index is out of bounds to catch for removing/rescanning handlers
+            if i >= self.handlers.len() {
+                return;
+            }
 
-        for (i, game) in self.games.iter().enumerate() {
             ui.horizontal(|ui| {
                 ui.add(
-                    egui::Image::new(game.icon())
+                    egui::Image::new(self.handlers[i].icon())
                         .max_width(16.0)
                         .corner_radius(2),
                 );
-                let btn = ui.selectable_value(&mut self.selected_game, i, game.name());
+
+                let btn =
+                    ui.selectable_value(&mut self.selected_handler, i, self.handlers[i].display());
                 if btn.has_focus() {
                     btn.scroll_to_me(None);
                 }
@@ -177,47 +194,58 @@ impl PartyApp {
                     self.cur_page = MenuPage::Game;
                 };
 
-                let popup_id = ui.make_persistent_id(format!("gamectx{}", i));
-                egui::old_popup::popup_below_widget(
-                    ui,
-                    popup_id,
-                    &btn,
-                    egui::PopupCloseBehavior::CloseOnClick,
-                    |ui| {
-                        if ui.button("Remove").clicked() {
-                            if yesno(
-                                "Remove game?",
-                                &format!("Are you sure you want to remove {}?", game.name()),
-                            ) {
-                                if let Err(err) = remove_game(&self.games[i]) {
-                                    println!("[partydeck] Failed to remove game: {}", err);
-                                    msg("Error", &format!("Failed to remove game: {}", err));
-                                }
-                            }
-                            refresh_games = true;
-                        }
-                        if let HandlerRef(h) = game {
-                            if ui.button("Open Handler Folder").clicked() {
-                                if let Err(_) = std::process::Command::new("sh")
-                                    .arg("-c")
-                                    .arg(format!("xdg-open {}", h.path_handler.display()))
-                                    .status()
-                                {
-                                    msg("Error", "Couldn't open handler folder!");
-                                }
-                            }
-                        }
-                    },
-                );
-
-                if btn.secondary_clicked() {
-                    ui.memory_mut(|mem| mem.toggle_popup(popup_id));
-                }
+                Popup::context_menu(&btn).show(|ui| self.handler_ctx_menu(ui, i));
             });
         }
-        // Hacky workaround to avoid borrowing conflicts from inside the loop
-        if refresh_games {
-            self.games = scan_all_games();
+    }
+
+    pub fn handler_ctx_menu(&mut self, ui: &mut Ui, i: usize) {
+        if ui.button("Edit").clicked() {
+            self.handler_edit = Some(self.handlers[i].clone());
+            self.cur_page = MenuPage::EditHandler;
+        }
+
+        if ui.button("Open Folder").clicked() {
+            if let Err(_) = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "xdg-open {}",
+                    self.handlers[i].path_handler.display()
+                ))
+                .status()
+            {
+                msg("Error", "Couldn't open handler folder!");
+            }
+        }
+
+        if ui.button("Remove").clicked() {
+            if yesno(
+                "Remove handler?",
+                &format!(
+                    "Are you sure you want to remove {}?",
+                    self.handlers[i].display()
+                ),
+            ) {
+                if let Err(err) = self.handlers[i].remove_handler() {
+                    println!("[partydeck] Failed to remove handler: {}", err);
+                    msg("Error", &format!("Failed to remove handler: {}", err));
+                }
+
+                self.handlers = scan_handlers();
+                if self.handlers.is_empty() {
+                    self.cur_page = MenuPage::Home;
+                }
+                if i >= self.handlers.len() {
+                    self.selected_handler = 0;
+                }
+            }
+        }
+
+        if ui.button("Export").clicked() {
+            if let Err(err) = self.handlers[i].export_pd2() {
+                println!("[partydeck] Failed to export handler: {}", err);
+                msg("Error", &format!("Failed to export handler: {}", err));
+            }
         }
     }
 }

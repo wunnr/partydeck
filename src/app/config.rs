@@ -38,7 +38,7 @@ impl Default for PartyConfig {
             gamescope_sdl_backend: true,
             kbm_support: true,
             proton_version: "".to_string(),
-            proton_separate_pfxs: false,
+            proton_separate_pfxs: true,
             vertical_two_player: false,
             pad_filter_type: PadFilterType::NoSteamInput,
             allow_multiple_instances_on_same_device: false,

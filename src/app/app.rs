@@ -1,11 +1,12 @@
 use std::thread::sleep;
 
 use super::config::*;
-use crate::game::*;
+use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::launch::launch_game;
 use crate::monitor::Monitor;
+use crate::profiles::*;
 use crate::util::*;
 
 use eframe::egui::{self, Key};
@@ -15,6 +16,7 @@ pub enum MenuPage {
     Home,
     Settings,
     Profiles,
+    EditHandler,
     Game,
     Instances,
 }
@@ -26,6 +28,7 @@ pub enum SettingsPage {
 }
 
 pub struct PartyApp {
+    pub installed_steamapps: Vec<Option<steamlocate::App>>,
     pub needs_update: bool,
     pub options: PartyConfig,
     pub cur_page: MenuPage,
@@ -36,9 +39,12 @@ pub struct PartyApp {
     pub input_devices: Vec<InputDevice>,
     pub instances: Vec<Instance>,
     pub instance_add_dev: Option<usize>,
-    pub games: Vec<Game>,
-    pub selected_game: usize,
     pub profiles: Vec<String>,
+
+    pub handlers: Vec<Handler>,
+    pub selected_handler: usize,
+    pub handler_edit: Option<Handler>,
+    pub handler_lite: Option<Handler>,
 
     pub loading_msg: Option<String>,
     pub loading_since: Option<std::time::Instant>,
@@ -46,33 +52,51 @@ pub struct PartyApp {
     pub task: Option<std::thread::JoinHandle<()>>,
 }
 
-macro_rules! cur_game {
+macro_rules! cur_handler {
     ($self:expr) => {
-        &$self.games[$self.selected_game]
+        &$self.handlers[$self.selected_handler]
     };
 }
 
 impl PartyApp {
-    pub fn new(monitors: Vec<Monitor>) -> Self {
+    pub fn new(monitors: Vec<Monitor>, handler_lite: Option<Handler>) -> Self {
         let options = load_cfg();
         let input_devices = scan_input_devices(&options.pad_filter_type);
-        Self {
-            needs_update: check_for_partydeck_update(),
+        let handlers = match handler_lite {
+            Some(_) => Vec::new(),
+            None => scan_handlers(),
+        };
+        let cur_page = match handler_lite {
+            Some(_) => MenuPage::Instances,
+            None => MenuPage::Home,
+        };
+
+        let mut app = Self {
+            installed_steamapps: get_installed_steamapps(),
+            needs_update: false,
             options,
-            cur_page: MenuPage::Home,
+            cur_page,
             settings_page: SettingsPage::General,
             infotext: String::new(),
             monitors,
             input_devices,
             instances: Vec::new(),
             instance_add_dev: None,
-            games: scan_all_games(),
-            selected_game: 0,
-            profiles: Vec::new(),
+            handlers,
+            selected_handler: 0,
+            handler_edit: None,
+            handler_lite,
+            profiles: scan_profiles(false),
             loading_msg: None,
             loading_since: None,
             task: None,
-        }
+        };
+
+        app.spawn_task("Checking for updates", move || {
+            app.needs_update = check_for_partydeck_update();
+        });
+
+        app
     }
 }
 
@@ -95,15 +119,17 @@ impl eframe::App for PartyApp {
             self.display_panel_top(ui);
         });
 
-        egui::SidePanel::left("games_panel")
-            .resizable(false)
-            .exact_width(200.0)
-            .show(ctx, |ui| {
-                if self.task.is_some() {
-                    ui.disable();
-                }
-                self.display_panel_left(ui);
-            });
+        if !self.is_lite() {
+            egui::SidePanel::left("games_panel")
+                .resizable(false)
+                .exact_width(200.0)
+                .show(ctx, |ui| {
+                    if self.task.is_some() {
+                        ui.disable();
+                    }
+                    self.display_panel_left(ui);
+                });
+        }
 
         if self.cur_page == MenuPage::Instances {
             egui::SidePanel::right("devices_panel")
@@ -129,6 +155,7 @@ impl eframe::App for PartyApp {
                 MenuPage::Home => self.display_page_main(ui),
                 MenuPage::Settings => self.display_page_settings(ui),
                 MenuPage::Profiles => self.display_page_profiles(ui),
+                MenuPage::EditHandler => self.display_page_edit_handler(ui),
                 MenuPage::Game => self.display_page_game(ui),
                 MenuPage::Instances => self.display_page_instances(ui),
             }
@@ -183,6 +210,14 @@ impl PartyApp {
         self.task = Some(std::thread::spawn(f));
     }
 
+    pub fn is_lite(&self) -> bool {
+        self.handler_lite.is_some()
+    }
+
+    fn check_for_update(&mut self) {
+        self.needs_update = check_for_partydeck_update();
+    }
+
     fn handle_gamepad_gui(&mut self, raw_input: &mut egui::RawInput) {
         let mut key: Option<egui::Key> = None;
         for pad in &mut self.input_devices {
@@ -191,7 +226,13 @@ impl PartyApp {
             }
             match pad.poll() {
                 Some(PadButton::ABtn) => key = Some(Key::Enter),
-                Some(PadButton::BBtn) => self.cur_page = MenuPage::Home,
+                Some(PadButton::BBtn) => {
+                    if self.handler_lite.is_some() {
+                        self.cur_page = MenuPage::Instances;
+                    } else {
+                        self.cur_page = MenuPage::Home;
+                    }
+                }
                 Some(PadButton::XBtn) => {
                     self.profiles = scan_profiles(false);
                     self.cur_page = MenuPage::Profiles;
@@ -376,7 +417,12 @@ impl PartyApp {
         }
         set_instance_names(&mut self.instances, &self.profiles);
 
-        let game = cur_game!(self).to_owned();
+        let handler = if let Some(h) = self.handler_lite.clone() {
+            h
+        } else {
+            cur_handler!(self).to_owned()
+        };
+
         let instances = self.instances.clone();
         let dev_infos: Vec<DeviceInfo> = self.input_devices.iter().map(|p| p.info()).collect();
 
@@ -388,9 +434,27 @@ impl PartyApp {
             "Launching...\n\nDon't press any buttons or move any analog sticks or mice.",
             move || {
                 sleep(std::time::Duration::from_secs(2));
-                if let Err(err) = launch_game(&game, &dev_infos, &instances, &cfg) {
-                    println!("[partydeck] Error: {}", err);
+                if let Err(err) = launch_game(&handler, &dev_infos, &instances, &cfg) {
+                    println!("[partydeck] Error launching instances: {}", err);
                     msg("Launch Error", &format!("{err}"));
+                }
+                if cfg.enable_kwin_script {
+                    if let Err(err) = kwin_dbus_unload_script() {
+                        println!("[partydeck] Error unloading KWin script: {}", err);
+                        msg("Failed unloading KWin script", &format!("{err}"));
+                    }
+                }
+                if let Err(err) = remove_guest_profiles() {
+                    println!("[partydeck] Error removing guest profiles: {}", err);
+                    msg("Failed removing guest profiles", &format!("{err}"));
+                }
+                if let Err(err) = fuse_overlayfs_unmount_gamedirs() {
+                    println!("[partydeck] Error unmounting game directories: {}", err);
+                    msg("Failed unmounting game directories", &format!("{err}"));
+                }
+                if let Err(err) = clear_tmp() {
+                    println!("[partydeck] Error removing tmp directory: {}", err);
+                    msg("Failed removing tmp directory", &format!("{err}"));
                 }
             },
         );

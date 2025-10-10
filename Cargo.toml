@@ -1,6 +1,6 @@
 [package]
 name = "partydeck"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 
 [dependencies]
@@ -21,8 +21,8 @@ tar = "0.4.44"
 walkdir = "2.5.0"
 x11rb = "0.13.1"
 zbus = "5.5.0"
-zip = "2.6.1"
 steamlocate = "2.0.1"
 semver = "1.0.26"
 winit = "0.30.12"
 sdl2 = "0.38.0"
+zip = "5.1.1"

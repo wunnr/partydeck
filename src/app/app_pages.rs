@@ -1,17 +1,20 @@
 use super::app::{MenuPage, PartyApp, SettingsPage};
 use super::config::*;
-use crate::game::Game::*;
+use crate::handler::scan_handlers;
 use crate::input::*;
 use crate::paths::*;
+use crate::profiles::*;
 use crate::util::*;
 
 use dialog::DialogBox;
 use eframe::egui::RichText;
 use eframe::egui::{self, Ui};
+use rfd::FileDialog;
+use std::path::PathBuf;
 
-macro_rules! cur_game {
+macro_rules! cur_handler {
     ($self:expr) => {
-        &$self.games[$self.selected_game]
+        &$self.handlers[$self.selected_handler]
     };
 }
 
@@ -70,7 +73,7 @@ impl PartyApp {
             .auto_shrink(false)
             .show(ui, |ui| {
                 for profile in &self.profiles {
-                    if ui.selectable_value(&mut 0, 0, profile).clicked() {
+                    if ui.selectable_value(&mut 0, 1, profile).clicked() {
                         if let Err(_) = std::process::Command::new("sh")
                             .arg("-c")
                             .arg(format!(
@@ -101,13 +104,154 @@ impl PartyApp {
         }
     }
 
-    pub fn display_page_game(&mut self, ui: &mut Ui) {
+    pub fn display_page_edit_handler(&mut self, ui: &mut Ui) {
+        let h = match &mut self.handler_edit {
+            Some(handler) => handler,
+            None => {
+                return;
+            }
+        };
+
+        let header = match h.is_saved_handler() {
+            false => "Add Game",
+            true => &format!("Edit Handler: {}", h.display()),
+        };
+
+        ui.heading(header);
+        ui.separator();
+
         ui.horizontal(|ui| {
-            ui.image(cur_game!(self).icon());
-            ui.heading(cur_game!(self).name());
+            ui.label("Name:");
+            ui.add(egui::TextEdit::singleline(&mut h.name).desired_width(150.0));
+            ui.label("Author:");
+            ui.add(egui::TextEdit::singleline(&mut h.author).desired_width(50.0));
+            ui.label("Version:");
+            ui.add(egui::TextEdit::singleline(&mut h.version).desired_width(50.0));
+            ui.label("Icon:");
+            ui.add(egui::Image::new(h.icon()).max_width(16.0).corner_radius(2));
+            if h.is_saved_handler() && ui.button("🖼").clicked() {
+                if let Some(file) = FileDialog::new()
+                    .set_title("Choose Icon:")
+                    .set_directory(&*PATH_HOME)
+                    .add_filter("PNG Image", &["png"])
+                    .pick_file()
+                    && let Some(extension) = file.extension()
+                    && extension == "png"
+                {
+                    let dest = h.path_handler.join("icon.png");
+                    if let Err(e) = std::fs::copy(file, dest) {
+                        eprintln!("Failed to copy icon: {}", e);
+                        msg("Error copying icon", &format!("{}", e));
+                    }
+                }
+            }
         });
 
         ui.separator();
+
+        let mut selected_index = self
+            .installed_steamapps
+            .iter()
+            .position(|game_opt| match (game_opt, &h.steam_appid) {
+                (Some(game), Some(appid)) => game.app_id == *appid,
+                (None, None) => true,
+                _ => false,
+            })
+            .unwrap_or(0);
+
+        ui.horizontal(|ui| {
+            ui.label("Steam App:");
+            egui::ComboBox::from_id_salt("appid")
+                .wrap()
+                .width(200.0)
+                .show_index(
+                    ui,
+                    &mut selected_index,
+                    self.installed_steamapps.len(),
+                    |i| match &self.installed_steamapps[i] {
+                        Some(app) => format!("({}) {}", app.app_id, app.install_dir),
+                        None => "None".to_string(),
+                    },
+                );
+
+            ui.checkbox(&mut h.use_goldberg, "Use Goldberg Steam Emu");
+        });
+
+        h.steam_appid = match &self.installed_steamapps[selected_index] {
+            Some(app) => Some(app.app_id),
+            None => None,
+        };
+
+        if h.steam_appid == None {
+            ui.horizontal(|ui| {
+                ui.label("Game root folder:");
+                ui.add_enabled(false, egui::TextEdit::singleline(&mut h.path_gameroot));
+                if ui.button("🗁").clicked() {
+                    if let Ok(path) = dir_dialog() {
+                        h.path_gameroot = path.to_string_lossy().to_string();
+                    }
+                }
+            });
+        }
+
+        ui.horizontal(|ui| {
+            ui.label("Executable:");
+            ui.add_enabled(false, egui::TextEdit::singleline(&mut h.exec));
+            if ui.button("🗁").clicked() {
+                if let Ok(base_path) = h.get_game_rootpath()
+                    && let Ok(path) = file_dialog_relative(&PathBuf::from(base_path))
+                {
+                    h.exec = path.to_string_lossy().to_string();
+                }
+            }
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Environment variables:");
+            ui.add(egui::TextEdit::singleline(&mut h.env));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Arguments:");
+            ui.add(egui::TextEdit::singleline(&mut h.args));
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Architecture:");
+            ui.radio_value(&mut h.is32bit, false, "64-bit");
+            ui.radio_value(&mut h.is32bit, true, "32-bit");
+        });
+
+        if !h.win() {
+            ui.horizontal(|ui| {
+                ui.label("Linux Runtime:");
+                ui.radio_value(&mut h.runtime, "".to_string(), "None");
+                ui.radio_value(&mut h.runtime, "scout".to_string(), "1.0 (scout)");
+                ui.radio_value(&mut h.runtime, "soldier".to_string(), "2.0 (soldier)");
+            });
+        }
+
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
+            if ui.button("Save").clicked() {
+                if let Err(e) = h.save_to_json() {
+                    msg("Error saving handler", &format!("{}", e));
+                } else {
+                    self.handlers = scan_handlers();
+                    self.cur_page = MenuPage::Game;
+                }
+            }
+        });
+    }
+
+    pub fn display_page_game(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            ui.image(cur_handler!(self).icon());
+            ui.heading(cur_handler!(self).display());
+        });
+
+        ui.separator();
+
+        let h = cur_handler!(self);
 
         ui.horizontal(|ui| {
             ui.add(
@@ -123,39 +267,40 @@ impl PartyApp {
                 self.instance_add_dev = None;
                 self.cur_page = MenuPage::Instances;
             }
-            if let HandlerRef(h) = cur_game!(self) {
-                ui.add(egui::Separator::default().vertical());
-                if h.win {
-                    ui.label(" Proton");
-                } else {
-                    ui.label("🐧 Native");
-                }
+
+            ui.add(egui::Separator::default().vertical());
+            if h.win() {
+                ui.label(" Proton");
+            } else {
+                ui.label("🐧 Native");
+            }
+            if !h.author.is_empty() {
                 ui.add(egui::Separator::default().vertical());
                 ui.label(format!("Author: {}", h.author));
+            }
+            if !h.version.is_empty() {
                 ui.add(egui::Separator::default().vertical());
                 ui.label(format!("Version: {}", h.version));
             }
         });
 
-        if let HandlerRef(h) = cur_game!(self) {
-            egui::ScrollArea::horizontal()
-                .max_width(f32::INFINITY)
-                .show(ui, |ui| {
-                    let available_height = ui.available_height();
-                    ui.horizontal(|ui| {
-                        for img in h.img_paths.iter() {
-                            ui.add(
-                                egui::Image::new(format!("file://{}", img.display()))
-                                    .fit_to_exact_size(egui::vec2(
-                                        available_height * 1.77,
-                                        available_height,
-                                    ))
-                                    .maintain_aspect_ratio(true),
-                            );
-                        }
-                    });
+        egui::ScrollArea::horizontal()
+            .max_width(f32::INFINITY)
+            .show(ui, |ui| {
+                let available_height = ui.available_height();
+                ui.horizontal(|ui| {
+                    for img in h.img_paths.iter() {
+                        ui.add(
+                            egui::Image::new(format!("file://{}", img.display()))
+                                .fit_to_exact_size(egui::vec2(
+                                    available_height * 1.77,
+                                    available_height,
+                                ))
+                                .maintain_aspect_ratio(true),
+                        );
+                    }
                 });
-        }
+            });
     }
 
     pub fn display_page_instances(&mut self, ui: &mut Ui) {
@@ -208,15 +353,13 @@ impl PartyApp {
             ui.horizontal(|ui| {
                 ui.label(format!("{}", i + 1));
 
-                if let HandlerRef(_) = cur_game!(self) {
-                    ui.label("👤");
-                    egui::ComboBox::from_id_salt(format!("{i}")).show_index(
-                        ui,
-                        &mut instance.profselection,
-                        self.profiles.len(),
-                        |i| self.profiles[i].clone(),
-                    );
-                }
+                ui.label("👤");
+                egui::ComboBox::from_id_salt(format!("{i}")).show_index(
+                    ui,
+                    &mut instance.profselection,
+                    self.profiles.len(),
+                    |i| self.profiles[i].clone(),
+                );
 
                 if self.options.gamescope_sdl_backend {
                     ui.label("🖵");
@@ -354,7 +497,7 @@ impl PartyApp {
             "Run instances in separate Proton prefixes",
         );
         if proton_separate_pfxs_check.hovered() {
-            self.infotext = "Runs each instance in its own Proton prefix. If unsure, leave this unchecked. This option will take up more space on the disk, but may also help with certain Proton-related issues such as only one instance of a game starting.".to_string();
+            self.infotext = "Runs each instance in separate Proton prefixes. If unsure, leave this checked. Multiple prefixes takes up more disk space, but generally provides better compatibility and fewer issues with Proton-based games.".to_string();
         }
 
         let allow_multiple_instances_on_same_device_check = ui.checkbox(
@@ -367,56 +510,29 @@ impl PartyApp {
 
         ui.separator();
 
-        ui.horizontal(|ui| {
         if ui.button("Erase Proton Prefix").clicked() {
-            if yesno("Erase Prefix?", "This will erase the Wine prefix used by PartyDeck. This shouldn't erase profile/game-specific data, but exercise caution. Are you sure?") && PATH_PARTY.join("gamesyms").exists() {
+            if yesno(
+                "Erase Prefix?",
+                "This will erase the Wine prefix used by PartyDeck. This shouldn't erase profile/game-specific data, but exercise caution. Are you sure?",
+            ) && PATH_PARTY.join("gamesyms").exists()
+            {
                 if let Err(err) = std::fs::remove_dir_all(PATH_PARTY.join("pfx")) {
                     msg("Error", &format!("Couldn't erase pfx data: {}", err));
-                }
-                else if let Err(err) = std::fs::create_dir_all(PATH_PARTY.join("pfx")) {
-                    msg("Error", &format!("Couldn't re-create pfx directory: {}", err));
-                }
-                else {
+                } else {
                     msg("Data Erased", "Proton prefix data successfully erased.");
                 }
             }
         }
 
-        if ui.button("Erase Symlink Data").clicked() {
-            if yesno("Erase Symlink Data?", "This will erase all game symlink data. This shouldn't erase profile/game-specific data, but exercise caution. Are you sure?") && PATH_PARTY.join("gamesyms").exists() {
-                if let Err(err) = std::fs::remove_dir_all(PATH_PARTY.join("gamesyms")) {
-                    msg("Error", &format!("Couldn't erase symlink data: {}", err));
-                }
-                else if let Err(err) = std::fs::create_dir_all(PATH_PARTY.join("gamesyms")) {
-                    msg("Error", &format!("Couldn't re-create symlink directory: {}", err));
-                }
-                else {
-                    msg("Data Erased", "Game symlink data successfully erased.");
-                }
+        if ui.button("Open PartyDeck Data Folder").clicked() {
+            if let Err(_) = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!("xdg-open {}/", PATH_PARTY.display()))
+                .status()
+            {
+                msg("Error", "Couldn't open PartyDeck Data Folder!");
             }
         }
-        });
-
-        ui.horizontal(|ui| {
-            if ui.button("Open PartyDeck Data Folder").clicked() {
-                if let Err(_) = std::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("xdg-open {}/", PATH_PARTY.display()))
-                    .status()
-                {
-                    msg("Error", "Couldn't open PartyDeck Data Folder!");
-                }
-            }
-            if ui.button("Edit game paths").clicked() {
-                if let Err(_) = std::process::Command::new("sh")
-                    .arg("-c")
-                    .arg(format!("xdg-open {}/paths.json", PATH_PARTY.display(),))
-                    .status()
-                {
-                    msg("Error", "Couldn't open paths.json!");
-                }
-            }
-        });
     }
 
     pub fn display_settings_gamescope(&mut self, ui: &mut Ui) {
