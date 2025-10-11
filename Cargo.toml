@@ -4,11 +4,9 @@ version = "0.8.0"
 edition = "2024"
 
 [dependencies]
-compress-tools = "0.15.1"
 dialog = "0.3.0"
 eframe = "0.32.1"
 egui_extras = { version = "0.32.1", features = ["all_loaders"] }
-env_logger = "0.11.7"
 evdev = "=0.13.0"
 fastrand = "2.3.0"
 image = { version = "0.25.6", features = ["jpeg", "png"] }
@@ -17,12 +15,10 @@ reqwest = { version = "0.12.15", features = ["blocking", "json"] }
 rfd = "0.15.3"
 serde = "1.0.219"
 serde_json = "1.0.140"
-tar = "0.4.44"
 walkdir = "2.5.0"
 x11rb = "0.13.1"
 zbus = "5.5.0"
 steamlocate = "2.0.1"
 semver = "1.0.26"
-winit = "0.30.12"
 sdl2 = "0.38.0"
 zip = "5.1.1"

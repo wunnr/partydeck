@@ -22,9 +22,9 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(path_profile.join("home/.config"))?;
     std::fs::create_dir_all(path_steam.clone())?;
 
-    let steam_id = format!("{:017}", rand::rng().random_range(u32::MIN..u32::MAX));
     let usersettings = format!(
-        "[user::general]\naccount_name={name}\naccount_steamid={steam_id}\nlanguage=english\nip_country=US"
+        "[user::general]\naccount_name={name}\naccount_steamid={:017}\nlanguage=english\nip_country=US",
+        fastrand::u64(10000000000000000..100000000000000000)
     );
     std::fs::write(path_steam.join("configs.user.ini"), usersettings)?;
 
