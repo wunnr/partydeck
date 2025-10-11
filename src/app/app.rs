@@ -214,10 +214,6 @@ impl PartyApp {
         self.handler_lite.is_some()
     }
 
-    fn check_for_update(&mut self) {
-        self.needs_update = check_for_partydeck_update();
-    }
-
     fn handle_gamepad_gui(&mut self, raw_input: &mut egui::RawInput) {
         let mut key: Option<egui::Key> = None;
         for pad in &mut self.input_devices {
