@@ -206,12 +206,8 @@ impl PartyApp {
         }
 
         if ui.button("Open Folder").clicked() {
-            if let Err(_) = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(format!(
-                    "xdg-open {}",
-                    self.handlers[i].path_handler.display()
-                ))
+            if let Err(_) = std::process::Command::new("xdg-open")
+                .arg(self.handlers[i].path_handler.clone())
                 .status()
             {
                 msg("Error", "Couldn't open handler folder!");

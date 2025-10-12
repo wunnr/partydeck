@@ -74,13 +74,8 @@ impl PartyApp {
             .show(ui, |ui| {
                 for profile in &self.profiles {
                     if ui.selectable_value(&mut 0, 1, profile).clicked() {
-                        if let Err(_) = std::process::Command::new("sh")
-                            .arg("-c")
-                            .arg(format!(
-                                "xdg-open {}/profiles/{}",
-                                PATH_PARTY.display(),
-                                profile
-                            ))
+                        if let Err(_) = std::process::Command::new("xdg-open")
+                            .arg(PATH_PARTY.join("profiles").join(profile))
                             .status()
                         {
                             msg("Error", "Couldn't open profile directory!");
@@ -525,9 +520,8 @@ impl PartyApp {
         }
 
         if ui.button("Open PartyDeck Data Folder").clicked() {
-            if let Err(_) = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(format!("xdg-open {}/", PATH_PARTY.display()))
+            if let Err(_) = std::process::Command::new("xdg-open")
+                .arg(PATH_PARTY.clone())
                 .status()
             {
                 msg("Error", "Couldn't open PartyDeck Data Folder!");
