@@ -83,34 +83,19 @@ impl Handler {
     }
 
     pub fn from_cli(path_exec: &str, args: &str) -> Self {
-        Self {
-            path_handler: PathBuf::new(),
-            img_paths: Vec::new(),
-            path_gameroot: Path::new(path_exec)
-                .parent()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap(),
+        let mut handler = Self::default();
 
-            name: String::new(),
-            author: String::new(),
-            version: String::new(),
-            info: String::new(),
+        handler.path_gameroot = Path::new(path_exec)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap();
+        handler.exec = Path::new(path_exec)
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap();
+        handler.args = args.to_string();
 
-            runtime: String::new(),
-            is32bit: false,
-            exec: Path::new(path_exec)
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string())
-                .unwrap(),
-            env: String::new(),
-            args: args.to_string(),
-            pause_between_starts: None,
-
-            use_goldberg: false,
-            steam_appid: None,
-
-            game_null_paths: Vec::new(),
-        }
+        handler
     }
 
     pub fn icon(&self) -> ImageSource<'_> {
@@ -294,6 +279,10 @@ impl Handler {
         // Overwrite the handler.json file with handlerclone
         let json = serde_json::to_string_pretty(&mut handlerclone)?;
         std::fs::write(tmpdir.join("handler.json"), json)?;
+
+        if file.is_file() {
+            std::fs::remove_file(&file)?;
+        }
 
         zip_dir(&tmpdir, &file)?;
         clear_tmp()?;
