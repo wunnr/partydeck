@@ -26,6 +26,7 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
         fastrand::u64(10000000000000000..100000000000000000)
     );
     std::fs::write(path_steam.join("configs.user.ini"), usersettings)?;
+    std::fs::write(path_steam.join("auto_accept_invite.txt"), "")?;
 
     println!("[partydeck] Profile created successfully");
     Ok(())
