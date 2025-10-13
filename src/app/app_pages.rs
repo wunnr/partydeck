@@ -257,10 +257,19 @@ impl PartyApp {
                     .max_height(16.0),
             );
             if ui.button("Play").clicked() {
-                self.instances.clear();
-                self.profiles = scan_profiles(true);
-                self.instance_add_dev = None;
-                self.cur_page = MenuPage::Instances;
+                if h.steam_appid.is_none() && h.path_gameroot.is_empty() {
+                    msg(
+                        "Game root path not found",
+                        "Please specify the game's root folder.",
+                    );
+                    self.handler_edit = Some(h.clone());
+                    self.cur_page = MenuPage::EditHandler;
+                } else {
+                    self.instances.clear();
+                    self.profiles = scan_profiles(true);
+                    self.instance_add_dev = None;
+                    self.cur_page = MenuPage::Instances;
+                }
             }
 
             ui.add(egui::Separator::default().vertical());
