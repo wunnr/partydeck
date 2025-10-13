@@ -185,8 +185,11 @@ impl PartyApp {
                         .corner_radius(2),
                 );
 
-                let btn =
-                    ui.selectable_value(&mut self.selected_handler, i, self.handlers[i].display());
+                let btn = ui.selectable_value(
+                    &mut self.selected_handler,
+                    i,
+                    self.handlers[i].display_clamp(),
+                );
                 if btn.has_focus() {
                     btn.scroll_to_me(None);
                 }

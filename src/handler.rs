@@ -110,6 +110,15 @@ impl Handler {
         self.name.as_str()
     }
 
+    pub fn display_clamp(&self) -> String {
+        if self.name.len() > 25 {
+            let out = format!("{}...", &self.name[..22]);
+            out.clone()
+        } else {
+            self.name.clone()
+        }
+    }
+
     pub fn win(&self) -> bool {
         self.exec.ends_with(".exe") || self.exec.ends_with(".bat")
     }
