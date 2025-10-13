@@ -13,7 +13,7 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
     let path_profile = PATH_PARTY.join(format!("profiles/{name}"));
     let path_steam = path_profile.join("steam/settings");
 
-    std::fs::create_dir_all(path_profile.join("windata/AppData/Local"))?;
+    std::fs::create_dir_all(path_profile.join("windata/AppData/Local/Temp"))?;
     std::fs::create_dir_all(path_profile.join("windata/AppData/LocalLow"))?;
     std::fs::create_dir_all(path_profile.join("windata/AppData/Roaming"))?;
     std::fs::create_dir_all(path_profile.join("windata/Documents"))?;
