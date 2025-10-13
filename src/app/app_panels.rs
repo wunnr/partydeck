@@ -157,7 +157,10 @@ impl PartyApp {
         }
 
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
-            ui.link("Devices not being detected?").on_hover_ui(|ui| {
+            ui.link("ℹ Incorrect/missing controller mappings in-game?").on_hover_ui(|ui| {
+                ui.label("Some native Linux games run using an older version of SDL2 that doesn't support newer controllers; enabling \"Force Steam Runtime SDL2\" in PartyDeck's settings may help.");
+            });
+            ui.link("ℹ Devices not being detected?").on_hover_ui(|ui| {
                 ui.style_mut().interaction.selectable_labels = true;
                 ui.label("Try adding your user to the `input` group.");
                 ui.label("In a terminal, enter the following command:");
