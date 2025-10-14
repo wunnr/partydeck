@@ -4,7 +4,7 @@ use super::config::*;
 use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
-use crate::launch::launch_game;
+use crate::launch::{fuse_overlayfs_mount_gamedirs, launch_game};
 use crate::monitor::Monitor;
 use crate::profiles::*;
 use crate::util::*;
@@ -429,7 +429,14 @@ impl PartyApp {
         self.spawn_task(
             "Launching...\n\nDon't press any buttons or move any analog sticks or mice.",
             move || {
-                sleep(std::time::Duration::from_secs(2));
+                sleep(std::time::Duration::from_secs_f32(1.5));
+                if handler.is_saved_handler()
+                    && let Err(err) = fuse_overlayfs_mount_gamedirs(&handler, &instances)
+                {
+                    println!("[partydeck] Error mounting game directories: {}", err);
+                    msg("Failed mounting game directories", &format!("{err}"));
+                    return;
+                }
                 if let Err(err) = launch_game(&handler, &dev_infos, &instances, &cfg) {
                     println!("[partydeck] Error launching instances: {}", err);
                     msg("Launch Error", &format!("{err}"));
