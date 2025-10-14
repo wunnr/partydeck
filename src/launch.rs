@@ -29,10 +29,6 @@ pub fn launch_game(
         );
     }
 
-    if h.is_saved_handler() {
-        fuse_overlayfs_mount_gamedirs(h, instances)?;
-    }
-
     if h.use_goldberg
         && let Some(appid) = h.steam_appid
         && let Some(steamdll_relative) = h.locate_steamapi_path()
@@ -417,7 +413,9 @@ pub fn fuse_overlayfs_mount_gamedirs(
     }
 
     for cmd in &mut cmds {
-        let status = cmd.status()?;
+        let status = cmd
+            .status()
+            .map_err(|_| "Fuse-overlayfs executable not found; Please install fuse-overlayfs through your distro's package manager. If you already have it installed (or are on SteamOS, where it should be pre-installed), open up an issue on the GitHub.")?;
         if !status.success() {
             return Err("fuse-overlayfs mount failed.".into());
         }
