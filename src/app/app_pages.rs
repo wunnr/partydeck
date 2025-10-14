@@ -543,13 +543,15 @@ impl PartyApp {
             &mut self.options.gamescope_fix_lowres,
             "Automatically fix low resolution instances",
         );
-        let gamescope_sdl_backend_check = ui.checkbox(
-            &mut self.options.gamescope_sdl_backend,
-            "Use SDL backend for Gamescope",
-        );
+        let gamescope_sdl_backend_check =
+            ui.checkbox(&mut self.options.gamescope_sdl_backend, "Use SDL backend");
         let kbm_support_check = ui.checkbox(
             &mut self.options.kbm_support,
             "Enable keyboard and mouse support through custom Gamescope",
+        );
+        let gamescope_force_grab_cursor_check = ui.checkbox(
+            &mut self.options.gamescope_force_grab_cursor,
+            "Force grab cursor for Gamescope",
         );
 
         if gamescope_lowres_fix_check.hovered() {
@@ -560,6 +562,9 @@ impl PartyApp {
         }
         if kbm_support_check.hovered() {
             self.infotext = "Runs a custom Gamescope build with support for holding keyboards and mice. If you want to use your own Gamescope installation, uncheck this.".to_string();
+        }
+        if gamescope_force_grab_cursor_check.hovered() {
+            self.infotext = "Sets the \"--force-grab-cursor\" flag in Gamescope. This keeps the cursor within the Gamescope window. If unsure, leave this unchecked.".to_string();
         }
     }
 }

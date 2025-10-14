@@ -186,6 +186,9 @@ pub fn launch_cmds(
             "-H",
             &instance.height.to_string(),
         ]);
+        if cfg.gamescope_force_grab_cursor {
+            cmd.arg("--force-grab-cursor");
+        }
         if cfg.gamescope_sdl_backend {
             cmd.arg("--backend=sdl");
             cmd.arg(format!("--display-index={}", instance.monitor));
