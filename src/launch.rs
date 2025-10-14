@@ -9,11 +9,9 @@ use crate::paths::*;
 use crate::profiles::{create_profile, create_profile_gamesave};
 use crate::util::*;
 
-pub fn launch_game(
+pub fn setup_profiles(
     h: &Handler,
-    input_devices: &[DeviceInfo],
     instances: &Vec<Instance>,
-    cfg: &PartyConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("\n[partydeck] Instances:");
     for instance in instances {
@@ -29,6 +27,15 @@ pub fn launch_game(
         );
     }
 
+    Ok(())
+}
+
+pub fn launch_game(
+    h: &Handler,
+    input_devices: &[DeviceInfo],
+    instances: &Vec<Instance>,
+    cfg: &PartyConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
     if h.use_goldberg
         && let Some(appid) = h.steam_appid
         && let Some(steamdll_relative) = h.locate_steamapi_path()
@@ -298,7 +305,7 @@ pub fn launch_cmds(
 
         let path_exec = gamedir.join(exec);
         let cwd = path_exec.parent().ok_or_else(|| "couldn't get parent")?;
-        cmd.arg("--chdir").arg(cwd);
+        cmd.current_dir(cwd);
 
         // Runtime
         if win {
@@ -321,10 +328,19 @@ pub fn launch_cmds(
 
         cmd.arg(&path_exec);
 
-        let gamedir_str = gamedir.to_string_lossy();
         for arg in h.args.split_whitespace() {
+            if arg.starts_with("$GAMEDIR") || arg.starts_with("$HANDLERDIR") {
+                let mut dirarg = arg
+                    .replace("$GAMEDIR", &gamedir.to_string_lossy())
+                    .replace("$HANDLERDIR", &h.path_handler.to_string_lossy());
+                if win {
+                    dirarg = dirarg.replace("/", "\\");
+                    dirarg = format!("Z:{}", dirarg);
+                }
+                cmd.arg(dirarg);
+                continue;
+            }
             let processed_arg = match arg {
-                "$GAMEDIR" => gamedir_str.as_ref(),
                 "$PROFILE" => &instance.profname,
                 "$WIDTH" => &instance.width.to_string(),
                 "$HEIGHT" => &instance.height.to_string(),
