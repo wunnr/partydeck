@@ -136,6 +136,8 @@ pub fn fuse_overlayfs_unmount_gamedirs() -> Result<(), Box<dyn std::error::Error
 }
 
 pub fn clear_tmp() -> Result<(), Box<dyn Error>> {
+    fuse_overlayfs_unmount_gamedirs()?;
+
     let tmp = PATH_PARTY.join("tmp");
 
     if !tmp.exists() {

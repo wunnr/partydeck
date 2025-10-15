@@ -457,10 +457,6 @@ impl PartyApp {
                     println!("[partydeck] Error removing guest profiles: {}", err);
                     msg("Failed removing guest profiles", &format!("{err}"));
                 }
-                if let Err(err) = fuse_overlayfs_unmount_gamedirs() {
-                    println!("[partydeck] Error unmounting game directories: {}", err);
-                    msg("Failed unmounting game directories", &format!("{err}"));
-                }
                 if let Err(err) = clear_tmp() {
                     println!("[partydeck] Error removing tmp directory: {}", err);
                     msg("Failed removing tmp directory", &format!("{err}"));
