@@ -113,6 +113,16 @@ pub fn get_installed_steamapps() -> Vec<Option<steamlocate::App>> {
     return games;
 }
 
+fn is_mount_point(dir: &PathBuf) -> Result<bool, Box<dyn std::error::Error>> {
+    if let Ok(status) = Command::new("mountpoint").arg(dir).status()
+        && status.success()
+    {
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
 pub fn fuse_overlayfs_unmount_gamedirs() -> Result<(), Box<dyn std::error::Error>> {
     let tmp = PATH_PARTY.join("tmp");
 
@@ -124,8 +134,13 @@ pub fn fuse_overlayfs_unmount_gamedirs() -> Result<(), Box<dyn std::error::Error
         if let Ok(entry) = entry_result
             && entry.path().is_dir()
             && entry.file_name().to_string_lossy().starts_with("game-")
+            && is_mount_point(&entry.path())?
         {
-            let status = Command::new("umount").arg(entry.path()).status()?;
+            let status = Command::new("umount")
+                .arg("-l")
+                .arg("-v")
+                .arg(entry.path())
+                .status()?;
             if !status.success() {
                 return Err(format!("Unmounting {} failed", entry.path().to_string_lossy()).into());
             }
