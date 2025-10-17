@@ -348,6 +348,7 @@ pub fn launch_cmds(
                 "$WIDTH" => &instance.width.to_string(),
                 "$HEIGHT" => &instance.height.to_string(),
                 "$RESOLUTION" => &format!("{}x{}", instance.width, instance.height),
+                "$INSTANCECOUNT" => &instances.len().to_string(),
                 _ => &String::from(arg).sanitize_path(),
             };
             cmd.arg(processed_arg);
