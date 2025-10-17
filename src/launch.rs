@@ -130,7 +130,7 @@ pub fn launch_cmds(
         .collect();
 
     for (i, instance) in instances.iter().enumerate() {
-        let gamedir = if h.is_saved_handler() {
+        let gamedir = if h.is_saved_handler() && !cfg.disable_mount_gamedirs {
             PATH_PARTY.join("tmp").join(format!("game-{}", i))
         } else {
             PathBuf::from(h.get_game_rootpath()?)

@@ -28,6 +28,7 @@ pub struct PartyConfig {
     pub pad_filter_type: PadFilterType,
     #[serde(default)]
     pub allow_multiple_instances_on_same_device: bool,
+    pub disable_mount_gamedirs: bool,
 }
 
 impl Default for PartyConfig {
@@ -44,6 +45,7 @@ impl Default for PartyConfig {
             vertical_two_player: false,
             pad_filter_type: PadFilterType::NoSteamInput,
             allow_multiple_instances_on_same_device: false,
+            disable_mount_gamedirs: false,
         }
     }
 }

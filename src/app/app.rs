@@ -437,6 +437,7 @@ impl PartyApp {
                     return;
                 }
                 if handler.is_saved_handler()
+                    && !cfg.disable_mount_gamedirs
                     && let Err(err) = fuse_overlayfs_mount_gamedirs(&handler, &instances)
                 {
                     println!("[partydeck] Error mounting game directories: {}", err);

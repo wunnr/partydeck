@@ -433,30 +433,35 @@ impl PartyApp {
 
     pub fn display_settings_general(&mut self, ui: &mut Ui) {
         let force_sdl2_check = ui.checkbox(&mut self.options.force_sdl, "Force Steam Runtime SDL2");
+        if force_sdl2_check.hovered() {
+            self.infotext = "DEFAULT: Disabled\n\nForces games to use the version of SDL2 included in the Steam Runtime. Only works on native Linux games, may fix problematic game controller support (incorrect mappings) in some games, may break others. If unsure, leave this unchecked.".to_string();
+        }
 
         let enable_kwin_script_check = ui.checkbox(
             &mut self.options.enable_kwin_script,
             "(KDE) Automatically resize/reposition instances using KWin script",
         );
-
-        let vertical_two_player_check = ui.checkbox(
-            &mut self.options.vertical_two_player,
-            "Vertical split for 2 players",
-        );
-
-        if force_sdl2_check.hovered() {
-            self.infotext = "Forces games to use the version of SDL2 included in the Steam Runtime. Only works on native Linux games, may fix problematic game controller support (incorrect mappings) in some games, may break others. If unsure, leave this unchecked.".to_string();
-        }
-
         if enable_kwin_script_check.hovered() {
-            self.infotext = "Resizes/repositions instances to fit the screen using a KWin script. If unsure, leave this checked. If using a desktop environment or window manager other than KDE Plasma, uncheck this; note that you will need to manually resize and reposition the windows.".to_string();
+            self.infotext = "DEFAULT: Enabled\n\n Resizes/repositions instances to fit the screen using a KWin script. If using a desktop environment or window manager other than KDE Plasma, uncheck this; note that you will need to manually resize and reposition the windows.".to_string();
         }
 
-        if vertical_two_player_check.hovered() {
-            self.infotext =
-                "Splits two-player games vertically (side by side) instead of horizontally."
-                    .to_string();
-        }
+        ui.horizontal(|ui| {
+            let split_style_label = ui.label("Split style");
+            let r1 = ui.radio_value(
+                &mut self.options.vertical_two_player,
+                false,
+                "Horizontal",
+            );
+            let r2 = ui.radio_value(
+                &mut self.options.vertical_two_player,
+                true,
+                "Vertical",
+            );
+            if split_style_label.hovered() || r1.hovered() || r2.hovered() {
+                self.infotext =
+                    "DEFAULT: Horizontal\n\nChoose whether to split two-player games horizontally (above/below) instead of vertically (side by side).".to_string();
+            }
+        });
 
         ui.horizontal(|ui| {
             let filter_label = ui.label("Controller filter");
@@ -477,7 +482,7 @@ impl PartyApp {
             );
 
             if filter_label.hovered() || r1.hovered() || r2.hovered() || r3.hovered() {
-                self.infotext = "Select which controllers to filter out. If unsure, set this to \"No Steam Input\". If you use Steam Input to remap controllers, you may want to select \"Only Steam Input\", but be warned that this option is experimental and is known to break certain Proton games.".to_string();
+                self.infotext = "DEFAULT: No Steam Input\n\nSelect which controllers to filter out. If you use Steam Input to remap controllers, you may want to select \"Only Steam Input\", but be warned that this option is experimental and is known to break certain Proton games.".to_string();
             }
 
             if r1.clicked() || r2.clicked() || r3.clicked() {
@@ -492,7 +497,7 @@ impl PartyApp {
                 .hint_text("GE-Proton"),
         );
         if proton_ver_label.hovered() || proton_ver_editbox.hovered() {
-            self.infotext = "Specify a Proton version. This can be a path, e.g. \"/path/to/proton\" or just a name, e.g. \"GE-Proton\" for the latest version of Proton-GE. If left blank, this will default to \"GE-Proton\". If unsure, leave this blank.".to_string();
+            self.infotext = "DEFAULT: GE-Proton\n\nSpecify a Proton version. This can be a path, e.g. \"/path/to/proton\" or just a name, e.g. \"GE-Proton\" for the latest version of Proton-GE. If left blank, this will default to \"GE-Proton\". If unsure, leave this blank.".to_string();
         }
         });
 
@@ -501,7 +506,7 @@ impl PartyApp {
             "Run instances in separate Proton prefixes",
         );
         if proton_separate_pfxs_check.hovered() {
-            self.infotext = "Runs each instance in separate Proton prefixes. If unsure, leave this checked. Multiple prefixes takes up more disk space, but generally provides better compatibility and fewer issues with Proton-based games.".to_string();
+            self.infotext = "DEFAULT: Enabled\n\nRuns each instance in separate Proton prefixes. If unsure, leave this checked. Multiple prefixes takes up more disk space, but generally provides better compatibility and fewer issues with Proton-based games.".to_string();
         }
 
         let allow_multiple_instances_on_same_device_check = ui.checkbox(
@@ -509,7 +514,15 @@ impl PartyApp {
             "Allow multiple instances on the same device",
         );
         if allow_multiple_instances_on_same_device_check.hovered() {
-            self.infotext = "Allow multiple instances on the same device. This can be useful for testing or when one person wants to control multiple instances.".to_string();
+            self.infotext = "DEFAULT: Disabled\n\nAllow multiple instances on the same device. This can be useful for testing or when one person wants to control multiple instances.".to_string();
+        }
+
+        let disable_mount_gamedirs_check = ui.checkbox(
+            &mut self.options.disable_mount_gamedirs,
+            "(Debug) Force run instances from original game directory",
+        );
+        if disable_mount_gamedirs_check.hovered() {
+            self.infotext = "DEFAULT: Disabled\n\nBy default, PartyDeck mounts game directories using fuse-overlayfs to let each instance write to the game's directory without conflicting with each other or affecting the game's installation. In addition, this lets handlers overlay content like mods or config files onto the game directory. Enabling this forces instances to launch from the original game directory without mounting, which will prevent handlers from using built-in mods, but may be useful for diagnosing issues.".to_string();
         }
 
         ui.separator();
