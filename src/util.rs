@@ -172,6 +172,7 @@ pub fn check_for_partydeck_update() -> bool {
         .send()
     {
         if let Ok(release) = client.json::<serde_json::Value>() {
+            println!("{}",release["tag_name"].as_str().unwrap());
             // Extract the tag name (vX.X.X format)
             if let Some(tag_name) = release["tag_name"].as_str() {
                 // Strip the 'v' prefix
@@ -180,13 +181,15 @@ pub fn check_for_partydeck_update() -> bool {
                 // Get current version from env!
                 let current_version = env!("CARGO_PKG_VERSION");
 
-                // Compare versions using semver
-                if let (Ok(latest_semver), Ok(current_semver)) = (
-                    semver::Version::parse(latest_version),
-                    semver::Version::parse(current_version),
-                ) {
-                    return latest_semver > current_semver;
-                }
+
+                return latest_version == current_version;
+                // // Compare versions using semver
+                // if let (Ok(latest_semver), Ok(current_semver)) = (
+                //     semver::Version::parse(latest_version),
+                //     semver::Version::parse(current_version),
+                // ) {
+                //     return latest_semver > current_semver;
+                // }
             }
         }
     }

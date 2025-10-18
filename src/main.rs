@@ -21,7 +21,8 @@ fn main() -> eframe::Result {
         std::env::set_var("SDL_VIDEODRIVER", "x11");
     }
 
-    let monitors = get_monitors_sdl();
+    // Using x11 direct monitor queries (hopefully) identical to SDL, just without the full SDL library
+    let monitors = get_monitors_direct();
 
     println!("[partydeck] Monitors detected:");
     for monitor in &monitors {
