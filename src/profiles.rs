@@ -17,6 +17,8 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(path_profile.join("windata/AppData/LocalLow"))?;
     std::fs::create_dir_all(path_profile.join("windata/AppData/Roaming"))?;
     std::fs::create_dir_all(path_profile.join("windata/Documents"))?;
+    std::fs::create_dir_all(path_profile.join("windata/Saved Games"))?;
+    std::fs::create_dir_all(path_profile.join("windata/Desktop"))?;
     std::fs::create_dir_all(path_profile.join("home/.local/share"))?;
     std::fs::create_dir_all(path_profile.join("home/.config"))?;
     std::fs::create_dir_all(path_steam.clone())?;
@@ -25,7 +27,14 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
         "[user::general]\naccount_name={name}\naccount_steamid={:017}\nlanguage=english\nip_country=US",
         fastrand::u64(10000000000000000..100000000000000000)
     );
+    let overlaysettings = format!(
+        "[overlay::general]\n
+        enable_experimental_overlay=1\n
+        [overlay::appearance]\n
+        Font_Size=32.0"
+    );
     std::fs::write(path_steam.join("configs.user.ini"), usersettings)?;
+    std::fs::write(path_steam.join("configs.overlay.ini"), overlaysettings)?;
     std::fs::write(path_steam.join("auto_accept_invite.txt"), "")?;
 
     println!("[partydeck] Profile created successfully");
@@ -109,9 +118,9 @@ pub fn remove_guest_profiles() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub static GUEST_NAMES: [&str; 31] = [
+pub static GUEST_NAMES: [&str; 33] = [
     "Blinky", "Pinky", "Inky", "Clyde", "Beatrice", "Battler", "Miyao", "Rena", "Ellie", "Joel",
     "Leon", "Ada", "Madeline", "Theo", "Yokatta", "Wyrm", "Brodiee", "Supreme", "Conk", "Gort",
     "Lich", "Smores", "Canary", "Trico", "Yorda", "Wander", "Agro", "Jak", "Daxter", "Soap",
-    "Ghost",
+    "Ghost", "Tomi", "Masaki",
 ];
