@@ -22,7 +22,7 @@ A split-screen game launcher for Linux/SteamOS
 - Steam multiplayer API is emulated, allowing for multiple instances of Steam games
 - Works with most game controllers without any additional setup, drivers, or third-party software
 - Now works with multiple keyboards and mice!
-- Now supports launching the instances across multiple monitors when using the SDL gamescope backend! 
+- Now supports launching the instances across multiple monitors when using the SDL gamescope backend!
 - Uses sandboxing software to mask out controllers so that each game instance only detects the controller assigned to it, preventing input interference
 - Profile support allows each player to have their own persistent save data, settings, and stats for games
 - Works out of the box on SteamOS
@@ -35,11 +35,11 @@ Download the latest release [here](https://github.com/wunnr/partydeck-rs/release
 
 SteamOS includes all of PartyDeck's dependencies, but you will need to be on SteamOS 3.7.0 or above for the splitscreen script to work.
 
-If you're in desktop mode, simply run `partydeck-rs`. To use PartyDeck in Gaming Mode, add `partydeck-rs` as a non-Steam game by right-clicking that file and selecting "Add to Steam", then go into the properties of the non-Steam game, add `--kwin --fullscreen` to the launch options, and disable Steam Input.
+If you're in desktop mode, simply run `partydeck-rs`. To use PartyDeck in Gaming Mode, add `GamingModeLauncher.sh` as a shortcut to Steam, and in the settings for that shortcut disable Steam Input.
 
 ### Desktop Linux
 
-You'll need to install KDE Plasma, Gamescope, and Bubblewrap using your distro's package manager. Then, while in a KDE Plasma session, run `partydeck-rs` to get started. If you're running Steam, make sure none of the controllers are using a Steam Input desktop layout, as Steam Input causes issues such as duplicate controllers being detected.
+You'll need to install KDE Plasma, Gamescope, Bubblewrap, and Fuse-overlayfs using your distro's package manager. Then, while in a KDE Plasma session, run `partydeck-rs` to get started. If you're running Steam, make sure none of the controllers are using a Steam Input desktop layout, as Steam Input causes issues such as duplicate controllers being detected.
 
 ### Getting Started
 Once in the main menu, click the + button to add a game: this can be just a regular Linux executable, a Windows game (.exe), or a PartyDeck Handler (.pdh). Create profiles if you want to store save data, and have a look through the settings menu.
