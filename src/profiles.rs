@@ -27,14 +27,7 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
         "[user::general]\naccount_name={name}\naccount_steamid={:017}\nlanguage=english\nip_country=US",
         fastrand::u64(10000000000000000..100000000000000000)
     );
-    let overlaysettings = format!(
-        "[overlay::general]\n
-        enable_experimental_overlay=1\n
-        [overlay::appearance]\n
-        Font_Size=32.0"
-    );
     std::fs::write(path_steam.join("configs.user.ini"), usersettings)?;
-    std::fs::write(path_steam.join("configs.overlay.ini"), overlaysettings)?;
     std::fs::write(path_steam.join("auto_accept_invite.txt"), "")?;
 
     println!("[partydeck] Profile created successfully");
