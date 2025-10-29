@@ -527,13 +527,13 @@ impl PartyApp {
 
         ui.separator();
 
-        if ui.button("Erase Proton Prefix").clicked() {
+        if ui.button("Erase All Proton Prefix Data").clicked() {
             if yesno(
                 "Erase Prefix?",
-                "This will erase the Wine prefix used by PartyDeck. This shouldn't erase profile/game-specific data, but exercise caution. Are you sure?",
-            ) && PATH_PARTY.join("gamesyms").exists()
+                "This will erase all Proton prefixes used by PartyDeck. This shouldn't erase profile/game-specific data, but exercise caution. Are you sure?",
+            ) && PATH_PARTY.join("prefixes").exists()
             {
-                if let Err(err) = std::fs::remove_dir_all(PATH_PARTY.join("pfx")) {
+                if let Err(err) = std::fs::remove_dir_all(PATH_PARTY.join("prefixes")) {
                     msg("Error", &format!("Couldn't erase pfx data: {}", err));
                 } else {
                     msg("Data Erased", "Proton prefix data successfully erased.");
