@@ -46,6 +46,7 @@ pub fn launch_game(
             PATH_PARTY.join("tmp/steam_settings/steam_appid.txt"),
             appid.to_string(),
         )?;
+        std::fs::write(PATH_PARTY.join("auto_accept_invite.txt"), "")?;
 
         let gen_interfaces = match &h.is32bit {
             true => PATH_RES.join("goldberg/generate_interfaces_x32"),
