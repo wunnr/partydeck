@@ -284,3 +284,29 @@ impl SanitizePath for String {
         sanitized
     }
 }
+
+pub trait OsFmt {
+    fn os_fmt(&self, win: bool) -> String;
+}
+
+impl OsFmt for String {
+    fn os_fmt(&self, win: bool) -> String {
+        if !win {
+            return self.clone();
+        } else {
+            let path_fmt = self.replace("/", "\\");
+            format!("Z:{}", path_fmt)
+        }
+    }
+}
+
+impl OsFmt for PathBuf {
+    fn os_fmt(&self, win: bool) -> String {
+        if !win {
+            return self.to_string_lossy().to_string();
+        } else {
+            let path_fmt = self.to_string_lossy().replace("/", "\\");
+            format!("Z:{}", path_fmt)
+        }
+    }
+}
