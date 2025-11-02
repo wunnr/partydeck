@@ -15,7 +15,6 @@ pub enum PadFilterType {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PartyConfig {
-    pub force_sdl: bool,
     pub enable_kwin_script: bool,
     pub gamescope_fix_lowres: bool,
     pub gamescope_sdl_backend: bool,
@@ -34,7 +33,6 @@ pub struct PartyConfig {
 impl Default for PartyConfig {
     fn default() -> Self {
         PartyConfig {
-            force_sdl: false,
             enable_kwin_script: true,
             gamescope_fix_lowres: true,
             gamescope_sdl_backend: true,
