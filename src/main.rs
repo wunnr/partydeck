@@ -1,4 +1,5 @@
 mod app;
+mod layout_manager;
 mod handler;
 mod input;
 mod instance;
@@ -39,6 +40,28 @@ fn main() -> eframe::Result {
     if std::env::args().any(|arg| arg == "--help") {
         println!("{}", USAGE_TEXT);
         std::process::exit(0);
+    }
+
+    if let Some(layout_index) = args.iter().position(|arg| arg == "--layout") {
+        if let Some(next_arg) = args.get(layout_index + 1) {
+            let exec: i32 = next_arg.parse::<i32>().expect("Cant parse layout fd");
+            layout_manager::start_layout_manager(exec);
+            std::process::exit(0);
+        } else {
+            let mut cmd = std::process::Command::new("river");
+            // cmd.args(["-c",format!("{}", args[0].as_str()).as_str()]);
+            cmd.args(["-c",format!("{} --layout {}", args[0].as_str(), 2).as_str()]);
+
+            match cmd.spawn() {
+                Ok(_) => std::process::exit(0),
+                Err(e) => {
+                    eprintln!("[partydeck] Failed to start kwin_wayland: {}", e);
+                    std::process::exit(1);
+                }
+            }
+            // eprintln!("{}", USAGE_TEXT);
+            // std::process::exit(1);
+        }
     }
 
     if std::env::args().any(|arg| arg == "--kwin") {

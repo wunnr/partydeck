@@ -9,6 +9,8 @@ use crate::monitor::Monitor;
 use crate::profiles::*;
 use crate::util::*;
 
+use crate::layout_manager;
+
 use eframe::egui::{self, Key};
 
 #[derive(Eq, PartialEq)]
@@ -451,7 +453,7 @@ impl PartyApp {
                     msg("Launch Error", &format!("{err}"));
                 }
                 if cfg.enable_kwin_script {
-                    if let Err(err) = kwin_dbus_unload_script() {
+                    if let Err(err) = layout_manager::kwin_dbus_unload_script() {
                         println!("[partydeck] Error unloading KWin script: {}", err);
                         msg("Failed unloading KWin script", &format!("{err}"));
                     }
