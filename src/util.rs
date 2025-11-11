@@ -4,8 +4,16 @@ use dialog::{Choice, DialogBox};
 use eframe::egui::TextBuffer;
 use rfd::FileDialog;
 use std::error::Error;
+use std::io::Read;
+use std::os::fd::AsFd;
+use std::os::fd::IntoRawFd;
 use std::path::PathBuf;
 use std::process::Command;
+
+use nix::poll;
+use nix::unistd;
+use nix::fcntl;
+use std::os::fd::FromRawFd;
 
 pub fn msg(title: &str, contents: &str) {
     let _ = dialog::Message::new(contents).title(title).show();
@@ -262,4 +270,47 @@ impl OsFmt for PathBuf {
             format!("Z:{}", path_fmt)
         }
     }
+}
+
+pub fn spawn_river_and_get_display(base_program: &str) -> Option<String> {
+    let (read_fd, write_fd) = unistd::pipe().unwrap();
+
+    let flags = fcntl::FdFlag::from_bits_truncate(fcntl::fcntl(&write_fd, fcntl::FcntlArg::F_GETFD).unwrap());
+    fcntl::fcntl(&write_fd, fcntl::FcntlArg::F_SETFD(flags & !fcntl::FdFlag::FD_CLOEXEC)).expect("Failed to open pipe to river");
+
+    let mut cmd = std::process::Command::new("river");
+    cmd.args(["-c",format!("{} --layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+
+    match cmd.spawn() {
+        Ok(_) => {},
+        Err(e) => {
+            eprintln!("[partydeck] Failed to start river: {}", e);
+            return None;
+        }
+    }
+
+
+    let mut fds = [poll::PollFd::new(read_fd.as_fd(), poll::PollFlags::POLLIN)];
+    let res = poll::poll(&mut fds, 2000 as u16).unwrap_or(0);
+    if res == 0 {
+        eprintln!("[partydeck] NO DATA FROM RIVER HANDLER");
+        return None;
+    }
+
+    let mut buf = [0u8; 1024]; // only store 1024 chars, anything outside that is bs
+    let mut reader = unsafe { std::fs::File::from_raw_fd(read_fd.into_raw_fd()) };
+    let n = reader.read(&mut buf);
+    match n {
+        Ok(_) => {},
+        Err(e) => {
+            eprintln!("[partydeck] Failed to read response from river: {}", e);
+            return None;
+        }
+    }
+    let n = n.ok()?;
+    let string_buf = String::from_utf8_lossy(&buf[..n]);
+
+    println!("Got DISPLAY_WAYLAND from river: {}", string_buf);
+    
+    return Some(string_buf.to_string());
 }

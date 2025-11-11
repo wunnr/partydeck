@@ -1,4 +1,3 @@
-// use crate::paths::{PATH_HOME, PATH_PARTY};
 use std::error::Error;
 use std::io::Write;
 use std::os::fd::FromRawFd;
@@ -38,7 +37,7 @@ impl Dispatch<WlRegistry, ()> for LayoutState {
         ) {
         match event {
             RegistryEvent::Global { name, interface, version } => {
-                println!("OFFERED RESOURCE: {} {} {}", name, interface, version);
+                // println!("OFFERED RESOURCE: {} {} {}", name, interface, version);
 
                 if interface == "zriver_control_v1" {
                     let control = registry.bind::<ZriverControlV1, _, _>(name, version, qh, ());
@@ -70,14 +69,14 @@ impl Dispatch<WlRegistry, ()> for LayoutState {
                     }
                     state.outputs_name = name;
                     state.outputs+=1;
-                    println!("Added one to wl output! NEW: {}", state.outputs);
+                    // println!("Added one to wl output! NEW: {}", state.outputs);
                 }
             }
             RegistryEvent::GlobalRemove { name } => {
-                println!("REMOVED RESOURCE: {}, removal: {}", name, state.outputs_name);
+                // println!("REMOVED RESOURCE: {}, removal: {}", name, state.outputs_name);
                 if name == state.outputs_name {
                     state.outputs = state.outputs.saturating_sub(1); // Prevent errors from underflow
-                    println!("New outputs count: {}", state.outputs);
+                    // println!("New outputs count: {}", state.outputs);
                     if state.outputs == 0 {
                         if let Some(ctrl) = &state.river_control {
                             if let Some(seat) = &state.seat {
@@ -172,6 +171,15 @@ impl_empty_dispatch!(LayoutState,WlOutput);
 pub fn start_layout_manager(_fd: i32) {
     let mut file = unsafe { std::fs::File::from_raw_fd(_fd) };
 
+    file.write_all(
+    env::var_os("WAYLAND_DISPLAY")
+            .expect("Failed to decode wayland display")
+            .as_encoded_bytes()
+    ).expect("Unable to write to fd!");
+
+    let _ = file.flush();
+    drop(file);
+
     let conn = Connection::connect_to_env().expect("Failed to connect to wayland session");
     let mut event_queue = conn.new_event_queue();
     let qh = event_queue.handle();
@@ -185,12 +193,6 @@ pub fn start_layout_manager(_fd: i32) {
         outputs_name: 0,
         outputs: 0
     };
-
-    file.write_all(
-    env::var_os("WAYLAND_DISPLAY")
-            .expect("Failed to decode wayland display")
-            .as_encoded_bytes()
-    ).expect("Unable to write to fd!");
 
     loop {
         if let Err(e) = event_queue.blocking_dispatch(&mut state) {

@@ -2613,6 +2613,7 @@ dependencies = [
  "evdev",
  "fastrand",
  "image",
+ "nix 0.30.1",
  "reqwest",
  "rfd",
  "serde",

@@ -48,19 +48,9 @@ fn main() -> eframe::Result {
             layout_manager::start_layout_manager(exec);
             std::process::exit(0);
         } else {
-            let mut cmd = std::process::Command::new("river");
-            // cmd.args(["-c",format!("{}", args[0].as_str()).as_str()]);
-            cmd.args(["-c",format!("{} --layout {}", args[0].as_str(), 2).as_str()]);
-
-            match cmd.spawn() {
-                Ok(_) => std::process::exit(0),
-                Err(e) => {
-                    eprintln!("[partydeck] Failed to start kwin_wayland: {}", e);
-                    std::process::exit(1);
-                }
-            }
-            // eprintln!("{}", USAGE_TEXT);
-            // std::process::exit(1);
+            let display_name = spawn_river_and_get_display(args[0].as_str()).expect("Failed to get display name!");
+            println!("DISPLAY NAME AABB: {}", display_name);
+            unsafe { std::env::set_var("WAYLAND_DISPLAY", display_name) };
         }
     }
 

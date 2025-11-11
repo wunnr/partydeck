@@ -4,3 +4,7 @@
 res/gamescope
 gen_release.sh
 handler.json
+.gitignore
+dep_graph.dot
+dep_graph.png
+.gitignore
