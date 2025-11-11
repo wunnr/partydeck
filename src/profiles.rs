@@ -23,12 +23,8 @@ pub fn create_profile(name: &str) -> Result<(), std::io::Error> {
     std::fs::create_dir_all(path_profile.join("home/.config"))?;
     std::fs::create_dir_all(path_steam.clone())?;
 
-    let usersettings = format!(
-        "[user::general]\naccount_name={name}\naccount_steamid={:017}\nlanguage=english\nip_country=US",
-        fastrand::u64(10000000000000000..100000000000000000)
-    );
+    let usersettings = format!("[user::general]\naccount_name={name}");
     std::fs::write(path_steam.join("configs.user.ini"), usersettings)?;
-    std::fs::write(path_steam.join("auto_accept_invite.txt"), "")?;
 
     println!("[partydeck] Profile created successfully");
     Ok(())
@@ -48,6 +44,15 @@ pub fn create_profile_gamesave(name: &str, h: &Handler) -> Result<(), Box<dyn Er
     println!("[partydeck] Creating game save {} for {}", uid, name);
 
     std::fs::create_dir_all(&path_gamesave)?;
+    
+    if let Some(appid) = h.steam_appid && h.use_goldberg {
+        let path_exec = path_gamesave.join(&h.exec);
+        let path_execdir = path_exec.parent().ok_or_else(|| "couldn't get parent")?;
+        if !path_execdir.exists() {
+            std::fs::create_dir_all(&path_execdir)?;
+        }
+        std::fs::write(path_execdir.join("steam_appid.txt"), appid.to_string())?;
+    }
 
     let profile_copy_gamesave = PathBuf::from(&h.path_handler).join("profile_copy_gamesave");
     if profile_copy_gamesave.exists() {

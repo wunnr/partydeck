@@ -39,16 +39,6 @@ pub fn launch_game(
     let new_cmds = launch_cmds(h, input_devices, instances, cfg)?;
     print_launch_cmds(&new_cmds);
 
-    if h.use_goldberg
-        && let Some(appid) = h.steam_appid
-    {
-        let tmp_dir = PATH_PARTY.join("tmp");
-        if !tmp_dir.exists() {
-            std::fs::create_dir_all(tmp_dir.clone())?;
-        }
-        std::fs::write(tmp_dir.join("steam_appid.txt"), appid.to_string())?;
-    }
-
     if cfg.enable_kwin_script {
         let script = match cfg.vertical_two_player {
             true => "splitscreen_kwin_vertical.js",
@@ -262,10 +252,6 @@ pub fn launch_cmds(
             if let Some(appid) = h.steam_appid {
                 cmd.env("SteamAppId", &appid.to_string());
                 cmd.env("SteamGameId", &appid.to_string());
-                cmd.arg("--bind").args([
-                    PATH_PARTY.join("tmp/steam_appid.txt"),
-                    cwd.join("steam_appid.txt"),
-                ]);
             }
 
             cmd.arg("--bind").args([
