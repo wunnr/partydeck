@@ -9,6 +9,9 @@ mod paths;
 mod profiles;
 mod util;
 
+use std::path::PathBuf;
+use std::str::FromStr;
+
 use crate::app::*;
 use crate::handler::Handler;
 use crate::monitor::*;
@@ -48,7 +51,9 @@ fn main() -> eframe::Result {
             layout_manager::start_layout_manager(exec);
             std::process::exit(0);
         } else {
-            let display_name = spawn_river_and_get_display(args[0].as_str()).expect("Failed to get display name!");
+            let river_path = PathBuf::from_str("river").expect("Failed to locate river");
+            println!("RIVER FOUND: {} - Exists: {}", river_path.display(), river_path.exists()); // fails, look more into how we can check river in path...
+            let display_name = spawn_river_and_get_display(args[0].as_str(), river_path).expect("Failed to get display name!");
             println!("DISPLAY NAME AABB: {}", display_name);
             unsafe { std::env::set_var("WAYLAND_DISPLAY", display_name) };
         }

@@ -167,9 +167,14 @@ impl_empty_dispatch!(LayoutState,WlSeat);
 impl_empty_dispatch!(LayoutState,WlOutput);
 
 
+// enum LayoutManagerType {
+//     NONE,
+//     KDE,    // Currently, this just sends dbus or not when starting
+//     RIVER   // Currently, this dose nothing lol
+// }
 
-pub fn start_layout_manager(_fd: i32) {
-    let mut file = unsafe { std::fs::File::from_raw_fd(_fd) };
+pub fn start_layout_manager(fd: i32) { // , layout_manager: LayoutManagerType
+    let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
 
     file.write_all(
     env::var_os("WAYLAND_DISPLAY")
@@ -194,12 +199,18 @@ pub fn start_layout_manager(_fd: i32) {
         outputs: 0
     };
 
+    // if (layout_manager == LayoutManagerType::KDE) {
+    //     // kwin_dbus_start_script();
+    // }
+
     loop {
         if let Err(e) = event_queue.blocking_dispatch(&mut state) {
             eprintln!("Wayland connection closed {e}");
             break;
         }
     }
+
+
 }
 
 
