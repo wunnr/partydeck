@@ -26,10 +26,27 @@ impl PartyApp {
         ui.label("Press SELECT/BACK or Tab to unlock gamepad navigation.");
         ui.label("PartyDeck is in the very early stages of development; as such, you will likely encounter bugs, issues, and strange design decisions.");
         ui.label("For debugging purposes, it's recommended to read terminal output (stdout) for further information on errors.");
-        ui.label("If you have found this software useful, consider donating to support further development!");
-        ui.hyperlink_to("Ko-fi", "https://ko-fi.com/wunner");
-        ui.label("If you've encountered issues or want to suggest improvements, criticism and feedback are always appreciated!");
-        ui.hyperlink_to("GitHub", "https://github.com/wunnr/partydeck");
+        ui.separator();
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Thank you to");
+            ui.hyperlink_to("♥Ko-fi", "https://ko-fi.com/wunner");
+            ui.label("supporters:");
+        });
+        ui.label("Framilano, Jayden, Marc, Max Rei");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Thank you to");
+            ui.hyperlink_to(" GitHub", "https://github.com/wunnr/partydeck");
+            ui.label("contributors:")
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.hyperlink_to("@Blahkaey", "https://github.com/Blahkaey");
+            ui.hyperlink_to("@blckink", "https://github.com/blckink");
+            ui.hyperlink_to("@felipecrs", "https://github.com/felipecrs");
+            ui.hyperlink_to("@framilano", "https://github.com/framilano");
+            ui.hyperlink_to("@Rudicito", "https://github.com/Rudicito");
+            ui.hyperlink_to("@Tau5", "https://github.com/Tau5");
+            ui.hyperlink_to("@Twig6943", "https://github.com/Twig6943");
+        });
     }
 
     pub fn display_page_settings(&mut self, ui: &mut Ui) {
@@ -373,15 +390,6 @@ impl PartyApp {
             ui.label(remove_text);
 
             ui.add(egui::Separator::default().vertical());
-
-            if self.instances.len() > 0 && self.instance_add_dev == None {
-                ui.add(
-                    egui::Image::new(egui::include_image!("../../res/BTN_NORTH.png"))
-                        .max_height(12.0),
-                );
-                ui.label("[A]");
-                ui.label("Invite to Instance");
-            }
         });
 
         ui.separator();
@@ -410,14 +418,17 @@ impl PartyApp {
                 }
 
                 if self.instance_add_dev == None {
-                    if ui.button("➕ Invite New Device").clicked() {
+                    let invitebtn = ui.add(
+                        egui::Button::image_and_text(egui::include_image!("../../res/BTN_NORTH.png"), "[A] Invite New Device")
+                    );
+                    if invitebtn.clicked() {
                         self.instance_add_dev = Some(i);
                     }
                 } else if self.instance_add_dev == Some(i) {
-                    if ui.button("🗙 Cancel").clicked() {
+                    ui.label("Adding new device...");
+                    if ui.button("🗙").clicked() {
                         self.instance_add_dev = None;
                     }
-                    ui.label("Adding new device...");
                 }
             });
             for &dev in instance.devices.iter() {
@@ -432,7 +443,7 @@ impl PartyApp {
                 }
 
                 ui.horizontal(|ui| {
-                    ui.label("  ");
+                    ui.label("    ");
                     ui.label(dev_text);
                     if ui.button("🗑").clicked() {
                         devices_to_remove.push((i, dev));
