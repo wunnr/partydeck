@@ -243,7 +243,7 @@ pub fn launch_cmds(
         }
 
         if h.use_goldberg {
-            cmd.env("GseAppPath", PATH_RES.join("goldberg"));
+            cmd.env("GseAppPath", PATH_PARTY.join("goldberg_data"));
             cmd.env("GseSavePath", path_prof.join("steam"));
             cmd.env("SteamAppUser", instance.profname.clone());
             cmd.env("SteamUser", instance.profname.clone());

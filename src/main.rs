@@ -101,6 +101,12 @@ fn main() -> eframe::Result {
         .expect("Failed to create handlers directory");
     std::fs::create_dir_all(PATH_PARTY.join("profiles"))
         .expect("Failed to create profiles directory");
+    if !PATH_PARTY.join("goldberg_data").exists() {
+        std::fs::create_dir_all(PATH_PARTY.join("goldberg_data/steam_settings"))
+            .expect("Failed to create goldberg data!");
+        std::fs::write(PATH_PARTY.join("goldberg_data/steam_settings/auto_accept_invite.txt"), "").expect("failed to create auto_accept_invite.txt");
+        std::fs::write(PATH_PARTY.join("goldberg_data/steam_settings/auto_send_invite.txt"), "").expect("failed to create auto_send_invite.txt");
+    }
 
     remove_guest_profiles().unwrap();
     clear_tmp().unwrap();
