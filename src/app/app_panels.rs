@@ -3,6 +3,7 @@ use crate::Handler;
 use crate::handler::import_pd2;
 use crate::handler::scan_handlers;
 use crate::input::*;
+use crate::monitor::get_monitors_sdl;
 use crate::profiles::scan_profiles;
 use crate::util::*;
 
@@ -60,6 +61,11 @@ impl PartyApp {
             if ui.button("🎮 🔄").clicked() {
                 self.instances.clear();
                 self.input_devices = scan_input_devices(&self.options.pad_filter_type);
+            }
+            
+            if ui.button("🖵 🔄").clicked() {
+                self.instances.clear();
+                self.monitors = get_monitors_sdl();
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
