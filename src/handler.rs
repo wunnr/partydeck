@@ -9,6 +9,14 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+#[derive(Clone, Serialize, Deserialize, PartialEq, Default)]
+pub enum SDL2Override {
+    #[default]
+    No,
+    Srt,
+    Sys,
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Handler {
     // Members that are determined by context
@@ -24,10 +32,11 @@ pub struct Handler {
 
     pub path_gameroot: String,
     pub runtime: String,
-    pub is32bit: bool,
     pub exec: String,
     pub args: String,
     pub env: String,
+    #[serde(default)]
+    pub sdl2_override: SDL2Override,
 
     pub pause_between_starts: Option<f64>,
 
@@ -50,10 +59,11 @@ impl Default for Handler {
             info: String::new(),
 
             runtime: String::new(),
-            is32bit: false,
             exec: String::new(),
             args: String::new(),
             env: String::new(),
+            sdl2_override: SDL2Override::No,
+
             pause_between_starts: None,
 
             use_goldberg: false,
@@ -166,35 +176,6 @@ impl Handler {
         std::fs::remove_dir_all(self.path_handler.clone())?;
 
         Ok(())
-    }
-
-    pub fn locate_steamapi_path(&self) -> Option<PathBuf> {
-        let dllname = match &self.win() {
-            true => match &self.is32bit {
-                true => "steam_api.dll",
-                false => "steam_api64.dll",
-            },
-            false => "libsteam_api.so",
-        };
-
-        if let Ok(rootpath) = self.get_game_rootpath() {
-            let walk_path = walkdir::WalkDir::new(&rootpath)
-                .min_depth(1)
-                .follow_links(false);
-
-            for entry in walk_path {
-                if let Ok(entry) = entry
-                    && entry.file_type().is_file()
-                    && let Some(path_str) = entry.path().to_str()
-                    && path_str.ends_with(dllname)
-                    && let Ok(relative_path) = entry.path().strip_prefix(&rootpath)
-                {
-                    return Some(relative_path.to_path_buf());
-                }
-            }
-        }
-
-        None
     }
 
     pub fn get_game_rootpath(&self) -> Result<String, Box<dyn Error>> {

@@ -19,35 +19,45 @@ macro_rules! cur_handler {
 impl PartyApp {
     pub fn display_panel_top(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
-            ui.add(
-                egui::Image::new(egui::include_image!("../../res/BTN_EAST.png")).max_height(12.0),
-            );
-
             let hometext = match self.is_lite() {
-                true => "Play",
-                false => "Home",
+                true => "▶",
+                false => "ℹ",
             };
             let homepage = match self.is_lite() {
                 true => MenuPage::Instances,
                 false => MenuPage::Home,
             };
-            ui.selectable_value(&mut self.cur_page, homepage, hometext);
-            ui.add(
-                egui::Image::new(egui::include_image!("../../res/BTN_NORTH.png")).max_height(12.0),
+
+            let homebtn = ui.add(
+                egui::Button::image_and_text(
+                    egui::include_image!("../../res/BTN_EAST.png"),
+                    hometext,
+                )
+                .selected(self.cur_page == MenuPage::Home),
             );
-            ui.selectable_value(&mut self.cur_page, MenuPage::Settings, "Settings");
-            ui.add(
-                egui::Image::new(egui::include_image!("../../res/BTN_WEST.png")).max_height(12.0),
+
+            if homebtn.clicked() {
+                self.cur_page = homepage;
+            }
+
+            let settingsbtn = ui.add(
+                egui::Button::image_and_text(egui::include_image!("../../res/BTN_NORTH.png"), "⛭")
+                    .selected(self.cur_page == MenuPage::Settings),
             );
-            if ui
-                .selectable_value(&mut self.cur_page, MenuPage::Profiles, "Profiles")
-                .clicked()
-            {
+            if settingsbtn.clicked() {
+                self.cur_page = MenuPage::Settings;
+            }
+
+            let profilesbtn = ui.add(
+                egui::Button::image_and_text(egui::include_image!("../../res/BTN_WEST.png"), "👥")
+                    .selected(self.cur_page == MenuPage::Profiles),
+            );
+            if profilesbtn.clicked() {
                 self.profiles = scan_profiles(false);
                 self.cur_page = MenuPage::Profiles;
             }
 
-            if ui.button("🎮 Rescan").clicked() {
+            if ui.button("🎮 🔄").clicked() {
                 self.instances.clear();
                 self.input_devices = scan_input_devices(&self.options.pad_filter_type);
             }
@@ -56,25 +66,24 @@ impl PartyApp {
                 if ui.button("❌ Quit").clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
+                ui.add(egui::Separator::default().vertical());
                 let version_label = match self.needs_update {
                     true => format!("v{} (Update Available)", env!("CARGO_PKG_VERSION")),
                     false => format!("v{}", env!("CARGO_PKG_VERSION")),
                 };
                 ui.hyperlink_to(version_label, "https://github.com/wunnr/partydeck/releases");
                 ui.add(egui::Separator::default().vertical());
+                ui.hyperlink_to("⮋", "https://drive.proton.me/urls/D9HBKM18YR#zG8XC8yVy9WL")
+                    .on_hover_text("Download Game Handlers");
+                ui.hyperlink_to("💰", "https://ko-fi.com/wunner")
+                    .on_hover_text("Support PartyDeck Development");
                 ui.hyperlink_to(
-                    "Licenses",
+                    "🖹",
                     "https://github.com/wunnr/partydeck/tree/main?tab=License-2-ov-file",
-                );
-                ui.add(egui::Separator::default().vertical());
-                ui.hyperlink_to(
-                    "Handlers",
-                    "https://drive.proton.me/urls/D9HBKM18YR#zG8XC8yVy9WL",
-                );
-                ui.add(egui::Separator::default().vertical());
-                ui.hyperlink_to("Donate", "https://ko-fi.com/wunner");
-                ui.add(egui::Separator::default().vertical());
-                ui.hyperlink_to("GitHub", "https://github.com/wunnr/partydeck");
+                )
+                .on_hover_text("Third-Party Licenses");
+                ui.hyperlink_to("", "https://github.com/wunnr/partydeck")
+                    .on_hover_text("GitHub");
             });
         });
     }
@@ -143,7 +152,7 @@ impl PartyApp {
                 "{} {} ({})",
                 pad.emoji(),
                 pad.fancyname(),
-                pad.path()
+                pad.path().trim_start_matches("/dev/input/event")
             ))
             .small();
 

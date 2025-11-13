@@ -23,25 +23,15 @@ pub static PATH_PARTY: LazyLock<PathBuf> = LazyLock::new(|| {
 });
 
 pub static PATH_STEAM: LazyLock<PathBuf> = LazyLock::new(|| {
-    if let Ok(steamdir) = steamlocate::SteamDir::locate() {
-        let steam_path = steamdir.path().to_path_buf();
-        if steam_path.exists() {
-            return steam_path;
-        }
-    }
-
-    // Backup
-    if let Ok(steam_path) = env::var("STEAM_BASE_FOLDER") {
-        return PathBuf::from(steam_path);
-    } else if PATH_LOCAL_SHARE.join("Steam").exists() {
-        PATH_LOCAL_SHARE.join("Steam")
+    if PATH_HOME.join(".steam").exists() {
+        PATH_HOME.join(".steam")
     } else if PATH_HOME
         .join(".var/app/com.valvesoftware.Steam/.steam/steam")
         .exists()
     {
         PATH_HOME.join(".var/app/com.valvesoftware.Steam/.steam/steam")
     } else {
-        PATH_HOME.join(".steam/steam")
+        PATH_HOME.join(".steam")
     }
 });
 

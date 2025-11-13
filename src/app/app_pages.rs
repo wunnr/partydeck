@@ -1,6 +1,6 @@
 use super::app::{MenuPage, PartyApp, SettingsPage};
 use super::config::*;
-use crate::handler::scan_handlers;
+use crate::handler::*;
 use crate::input::*;
 use crate::paths::*;
 use crate::profiles::*;
@@ -169,7 +169,7 @@ impl PartyApp {
                     },
                 );
 
-            ui.checkbox(&mut h.use_goldberg, "Use Goldberg Steam Emu");
+            ui.checkbox(&mut h.use_goldberg, "Emulate Steam Client");
         });
 
         h.steam_appid = match &self.installed_steamapps[selected_index] {
@@ -211,11 +211,22 @@ impl PartyApp {
             ui.add(egui::TextEdit::singleline(&mut h.args));
         });
 
-        ui.horizontal(|ui| {
-            ui.label("Architecture:");
-            ui.radio_value(&mut h.is32bit, false, "64-bit");
-            ui.radio_value(&mut h.is32bit, true, "32-bit");
-        });
+        if !h.win() {
+            ui.horizontal(|ui| {
+                ui.label("SDL2 Override:");
+                ui.radio_value(&mut h.sdl2_override, SDL2Override::No, "None");
+                ui.radio_value(
+                    &mut h.sdl2_override,
+                    SDL2Override::Srt,
+                    "Steam Runtime (32-bit)",
+                );
+                ui.radio_value(
+                    &mut h.sdl2_override,
+                    SDL2Override::Sys,
+                    "System Installation",
+                );
+            });
+        }
 
         if !h.win() {
             ui.horizontal(|ui| {
@@ -249,14 +260,11 @@ impl PartyApp {
         let h = cur_handler!(self);
 
         ui.horizontal(|ui| {
-            ui.add(
-                egui::Image::new(egui::include_image!("../../res/BTN_START.png")).max_height(16.0),
-            );
-            ui.add(
-                egui::Image::new(egui::include_image!("../../res/BTN_START_PS5.png"))
-                    .max_height(16.0),
-            );
-            if ui.button("Play").clicked() {
+            let playbtn = ui.add(egui::Button::image_and_text(
+                egui::include_image!("../../res/BTN_START.png"),
+                "Play",
+            ));
+            if playbtn.clicked() {
                 if h.steam_appid.is_none() && h.path_gameroot.is_empty() {
                     msg(
                         "Game root path not found",
@@ -418,10 +426,6 @@ impl PartyApp {
                         egui::Image::new(egui::include_image!("../../res/BTN_START.png"))
                             .max_height(16.0),
                     );
-                    ui.add(
-                        egui::Image::new(egui::include_image!("../../res/BTN_START_PS5.png"))
-                            .max_height(16.0),
-                    );
                     if ui.button("Start").clicked() {
                         self.prepare_game_launch();
                     }
@@ -432,11 +436,6 @@ impl PartyApp {
     }
 
     pub fn display_settings_general(&mut self, ui: &mut Ui) {
-        let force_sdl2_check = ui.checkbox(&mut self.options.force_sdl, "Force Steam Runtime SDL2");
-        if force_sdl2_check.hovered() {
-            self.infotext = "DEFAULT: Disabled\n\nForces games to use the version of SDL2 included in the Steam Runtime. Only works on native Linux games, may fix problematic game controller support (incorrect mappings) in some games, may break others. If unsure, leave this unchecked.".to_string();
-        }
-
         let enable_kwin_script_check = ui.checkbox(
             &mut self.options.enable_kwin_script,
             "(KDE) Automatically resize/reposition instances using KWin script",
@@ -511,7 +510,7 @@ impl PartyApp {
 
         let allow_multiple_instances_on_same_device_check = ui.checkbox(
             &mut self.options.allow_multiple_instances_on_same_device,
-            "Allow multiple instances on the same device",
+            "(Debug) Allow multiple instances from one gamepad",
         );
         if allow_multiple_instances_on_same_device_check.hovered() {
             self.infotext = "DEFAULT: Disabled\n\nAllow multiple instances on the same device. This can be useful for testing or when one person wants to control multiple instances.".to_string();

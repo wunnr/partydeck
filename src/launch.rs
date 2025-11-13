@@ -22,7 +22,7 @@ pub fn setup_profiles(
             create_profile_gamesave(&instance.profname, h)?;
         }
         println!(
-            "  - Profile: {}, Monitor: {}, Resolution: {}x{}",
+            "[partydeck] - Profile: {}, Monitor: {}, Resolution: {}x{}",
             instance.profname, instance.monitor, instance.width, instance.height
         );
     }
@@ -36,51 +36,24 @@ pub fn launch_game(
     instances: &Vec<Instance>,
     cfg: &PartyConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if h.use_goldberg
-        && let Some(appid) = h.steam_appid
-        && let Some(steamdll_relative) = h.locate_steamapi_path()
-    {
-        std::fs::create_dir_all(PATH_PARTY.join("tmp/steam_settings"))?;
-
-        std::fs::write(
-            PATH_PARTY.join("tmp/steam_settings/steam_appid.txt"),
-            appid.to_string(),
-        )?;
-        std::fs::write(PATH_PARTY.join("auto_accept_invite.txt"), "")?;
-
-        let gen_interfaces = match &h.is32bit {
-            true => PATH_RES.join("goldberg/generate_interfaces_x32"),
-            false => PATH_RES.join("goldberg/generate_interfaces_x64"),
-        };
-        let path_dll = PathBuf::from(h.get_game_rootpath()?).join(steamdll_relative);
-        let status = std::process::Command::new(gen_interfaces)
-            .arg(path_dll)
-            .current_dir(PATH_PARTY.join("tmp/steam_settings"))
-            .status()?;
-        if !status.success() {
-            return Err("Generate interfaces failed".into());
-        }
-    }
-
     let new_cmds = launch_cmds(h, input_devices, instances, cfg)?;
     print_launch_cmds(&new_cmds);
 
     if cfg.enable_kwin_script {
-        let script = if instances.len() == 2 && cfg.vertical_two_player {
-            "splitscreen_kwin_vertical.js"
-        } else {
-            "splitscreen_kwin.js"
+        let script = match cfg.vertical_two_player {
+            true => "splitscreen_kwin_vertical.js",
+            false => "splitscreen_kwin.js",
         };
 
         kwin_dbus_start_script(PATH_RES.join(script))?;
     }
 
-    let mut handles = Vec::new();
-
     let sleep_time = match h.pause_between_starts {
         Some(f) => f,
         None => 0.5,
     };
+
+    let mut handles = Vec::new();
 
     let mut i = 0;
     for mut cmd in new_cmds {
@@ -114,13 +87,10 @@ pub fn launch_cmds(
         false => Path::new("gamescope"),
     };
 
-    if (runtime == "scout"
-        && !PATH_STEAM
-            .join("steamapps/common/SteamLinuxRuntime_soldier")
-            .exists())
+    if (runtime == "scout" && !PATH_STEAM.join("bin32/steam-runtime/run.sh").exists())
         || (runtime == "soldier"
             && !PATH_STEAM
-                .join("steamapps/common/SteamLinuxRuntime_soldier")
+                .join("steam/steamapps/common/SteamLinuxRuntime_soldier")
                 .exists())
     {
         return Err(format!("Steam Runtime {runtime} not found!").into());
@@ -141,6 +111,9 @@ pub fn launch_cmds(
             return Err(format!("Executable not found: {}", gamedir.join(exec).display()).into());
         }
 
+        let path_exec = gamedir.join(exec);
+        let cwd = path_exec.parent().ok_or_else(|| "couldn't get parent")?;
+
         let path_prof = PATH_PARTY.join("profiles").join(&instance.profname);
         let path_pfx = PATH_PARTY
             .join("prefixes")
@@ -151,14 +124,19 @@ pub fn launch_cmds(
 
         let cmd = &mut cmds[i];
 
+        cmd.current_dir(cwd);
+
         cmd.env("SDL_JOYSTICK_HIDAPI", "0");
         cmd.env("ENABLE_GAMESCOPE_WSI", "0");
         cmd.env("PROTON_DISABLE_HIDRAW", "1");
-        if cfg.force_sdl && !win {
-            let path_sdl = PATH_STEAM.join(match h.is32bit {
-                true => "ubuntu12_32/steam-runtime/usr/lib/i386-linux-gnu/libSDL2-2.0.so.0",
-                false => "ubuntu12_32/steam-runtime/usr/lib/x86_64-linux-gnu/libSDL2-2.0.so.0",
-            });
+        if h.sdl2_override != SDL2Override::No {
+            let path_sdl = match h.sdl2_override {
+                SDL2Override::Srt => {
+                    PATH_STEAM.join("bin32/steam-runtime/usr/lib/i386-linux-gnu/libSDL2-2.0.so.0")
+                }
+                SDL2Override::Sys => PathBuf::from("/usr/lib/libSDL2.so"),
+                _ => PathBuf::new(),
+            };
             cmd.env("SDL_DYNAMIC_API", path_sdl);
         }
         if win {
@@ -170,12 +148,11 @@ pub fn launch_cmds(
             cmd.env("WINEPREFIX", &path_pfx);
             cmd.env("PROTON_VERB", "run");
             cmd.env("PROTONPATH", protonpath);
-
-            if !h.env.is_empty() {
-                for env_var in h.env.split_whitespace() {
-                    if let Some((key, value)) = env_var.split_once('=') {
-                        cmd.env(key, value);
-                    }
+        }
+        if !h.env.is_empty() {
+            for env_var in h.env.split_whitespace() {
+                if let Some((key, value)) = env_var.split_once('=') {
+                    cmd.env(key, value);
                 }
             }
         }
@@ -244,24 +221,12 @@ pub fn launch_cmds(
         } else {
             let path_prof_home = path_prof.join("home");
             cmd.env("HOME", &path_prof_home);
-            // Steam runtime looks in HOME/.steam directory
-            let steam_path = if PATH_HOME.join(".steam").exists() {
-                Some(PATH_HOME.join(".steam"))
-            } else if PATH_HOME
-                .join(".var/app/com.valvesoftware.Steam/.steam/steam")
-                .exists()
-            {
-                Some(PATH_HOME.join(".var/app/com.valvesoftware.Steam/.steam/steam"))
-            } else {
-                None
-            };
-            if let Some(path) = steam_path {
-                cmd.args([
-                    "--bind",
-                    &path.to_string_lossy(),
-                    &path_prof_home.join(".steam").to_string_lossy(),
-                ]);
-            }
+            // Also bind the Steam directory as the Steam runtimes look for HOME/.steam
+            cmd.args([
+                "--bind",
+                &PATH_STEAM.to_string_lossy(),
+                &path_prof_home.join(".steam").to_string_lossy(),
+            ]);
         }
 
         for subpath in &h.game_null_paths {
@@ -278,38 +243,34 @@ pub fn launch_cmds(
         }
 
         if h.use_goldberg {
-            if let Some(subpath) = h.locate_steamapi_path() {
-                let src = PATH_RES.join("goldberg").join(match (h.win(), h.is32bit) {
-                    (true, true) => "steam_api.dll",
-                    (true, false) => "steam_api64.dll",
-                    (false, true) => "libsteam_api.so",
-                    (false, false) => "libsteam_api64.so",
-                });
-                let dest = gamedir.join(subpath);
-                cmd.args(["--bind", &src.to_string_lossy(), &dest.to_string_lossy()]);
+            cmd.env("GseAppPath", PATH_PARTY.join("goldberg_data"));
+            cmd.env("GseSavePath", path_prof.join("steam"));
+            cmd.env("SteamAppUser", instance.profname.clone());
+            cmd.env("SteamUser", instance.profname.clone());
+            cmd.env("SteamClientLaunch", "1");
+            cmd.env("SteamEnv", "1");
+            if let Some(appid) = h.steam_appid {
+                cmd.env("SteamAppId", &appid.to_string());
+                cmd.env("SteamGameId", &appid.to_string());
+            }
 
-                if let Some(parent) = dest.parent() {
-                    cmd.args([
-                        "--bind",
-                        &PATH_PARTY.join("tmp/steam_settings").to_string_lossy(),
-                        &parent.join("steam_settings").to_string_lossy(),
-                    ]);
-                }
+            cmd.arg("--bind").args([
+                PATH_RES.join("goldberg/linux32"),
+                std::fs::read_link(PATH_STEAM.join("sdk32"))?,
+            ]);
+
+            cmd.arg("--bind").args([
+                PATH_RES.join("goldberg/linux64"),
+                std::fs::read_link(PATH_STEAM.join("sdk64"))?,
+            ]);
+
+            if win {
+                cmd.arg("--bind").args([
+                    PATH_RES.join("goldberg/win"),
+                    path_pfx.join("drive_c/Program Files (x86)/Steam"),
+                ]);
             }
         }
-
-        let path_profile_gse = path_prof.join("steam");
-        if win {
-            let path_gse_win = path_pfx.join("drive_c/users/steamuser/AppData/Roaming/GSE Saves");
-            cmd.arg("--bind").args([&path_profile_gse, &path_gse_win]);
-        } else {
-            let path_gse_linux = path_prof.join("home/.local/share/GSE Saves");
-            cmd.arg("--bind").args([&path_profile_gse, &path_gse_linux]);
-        }
-
-        let path_exec = gamedir.join(exec);
-        let cwd = path_exec.parent().ok_or_else(|| "couldn't get parent")?;
-        cmd.current_dir(cwd);
 
         // Runtime
         if win {
@@ -317,12 +278,13 @@ pub fn launch_cmds(
         } else {
             match runtime {
                 "scout" => {
-                    cmd.arg(PATH_STEAM.join("ubuntu12_32/steam-runtime/run.sh"));
+                    cmd.arg(PATH_STEAM.join("bin32/steam-runtime/run.sh"));
                 }
                 "soldier" => {
                     cmd.arg(
-                        PATH_STEAM
-                            .join("steamapps/common/SteamLinuxRuntime_soldier/_v2-entry-point"),
+                        PATH_STEAM.join(
+                            "steam/steamapps/common/SteamLinuxRuntime_soldier/_v2-entry-point",
+                        ),
                     );
                     cmd.arg("--");
                 }
@@ -333,23 +295,15 @@ pub fn launch_cmds(
         cmd.arg(&path_exec);
 
         for arg in h.args.split_whitespace() {
-            if arg.starts_with("$GAMEDIR") || arg.starts_with("$HANDLERDIR") {
-                let mut dirarg = arg
-                    .replace("$GAMEDIR", &gamedir.to_string_lossy())
-                    .replace("$HANDLERDIR", &h.path_handler.to_string_lossy());
-                if win {
-                    dirarg = dirarg.replace("/", "\\");
-                    dirarg = format!("Z:{}", dirarg);
-                }
-                cmd.arg(dirarg);
-                continue;
-            }
             let processed_arg = match arg {
                 "$PROFILE" => &instance.profname,
                 "$WIDTH" => &instance.width.to_string(),
                 "$HEIGHT" => &instance.height.to_string(),
                 "$RESOLUTION" => &format!("{}x{}", instance.width, instance.height),
                 "$INSTANCECOUNT" => &instances.len().to_string(),
+                "$INSTANCENUM" => &i.to_string(),
+                "$GAMEDIR" => &gamedir.os_fmt(win),
+                "$HANDLERDIR" => &h.path_handler.os_fmt(win),
                 _ => &String::from(arg).sanitize_path(),
             };
             cmd.arg(processed_arg);
