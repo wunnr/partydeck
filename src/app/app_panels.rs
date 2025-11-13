@@ -173,7 +173,7 @@ impl PartyApp {
 
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
             ui.link("ℹ Incorrect/missing controller mappings in-game?").on_hover_ui(|ui| {
-                ui.label("Some native Linux games run using an older version of SDL2 that doesn't support newer controllers; enabling \"Force Steam Runtime SDL2\" in PartyDeck's settings may help.");
+                ui.label("Some native Linux games run using an older version of SDL2 that doesn't support newer controllers; you can edit the handler and change the SDL2 Override setting to \"Steam Runtime\" for older 32-bit games, or \"System Installation\" for 64-bit games.\n\nWindows Unity-based games may not recognize input from PlayStation controllers; the current workaround for this is to use them through Steam Input, and change PartyDeck controller filter setting to \"Only Steam Input\".");
             });
             ui.link("ℹ Devices not being detected?").on_hover_ui(|ui| {
                 ui.style_mut().interaction.selectable_labels = true;
