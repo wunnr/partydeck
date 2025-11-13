@@ -236,6 +236,13 @@ impl PartyApp {
                 ui.radio_value(&mut h.runtime, "soldier".to_string(), "2.0 (soldier)");
             });
         }
+        
+        if h.spec_ver != HANDLER_SPEC_CURRENT_VERSION {
+            if ui.button("Update Handler Specification Version").clicked() {
+                h.spec_ver = HANDLER_SPEC_CURRENT_VERSION;
+                msg("Handler Specification Version Updated", "Remember to save your changes.");
+            }
+        }
 
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
             if ui.button("Save").clicked() {
@@ -265,6 +272,22 @@ impl PartyApp {
                 "Play",
             ));
             if playbtn.clicked() {
+                if h.spec_ver != HANDLER_SPEC_CURRENT_VERSION {
+                    let mismatch = match h.spec_ver < HANDLER_SPEC_CURRENT_VERSION {
+                        true => "an older",
+                        false => "a newer",
+                    };
+                    let mismatch2 = match h.spec_ver < HANDLER_SPEC_CURRENT_VERSION {
+                        true => "Up-to-date handlers can be found by clicking the ⮋ button on the top bar of the launcher.",
+                        false => "It is recommended to update PartyDeck to the latest version.",
+                    };
+                    msg(
+                        "Handler version mismatch",
+                        &format!("This handler was meant for use with {} version of PartyDeck; you may experience issues or the game may not work at all. {} If everything still works fine, you can prevent this message appearing in the future by editing the handler, updating the spec version and saving.",
+                            mismatch, mismatch2
+                        )
+                    );
+                }
                 if h.steam_appid.is_none() && h.path_gameroot.is_empty() {
                     msg(
                         "Game root path not found",

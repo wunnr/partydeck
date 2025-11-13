@@ -9,6 +9,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+pub const HANDLER_SPEC_CURRENT_VERSION: u16 = 3;
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Default)]
 pub enum SDL2Override {
     #[default]
@@ -29,6 +31,8 @@ pub struct Handler {
     pub author: String,
     pub version: String,
     pub info: String,
+    #[serde(default)]
+    pub spec_ver: u16,
 
     pub path_gameroot: String,
     pub runtime: String,
@@ -57,6 +61,7 @@ impl Default for Handler {
             author: String::new(),
             version: String::new(),
             info: String::new(),
+            spec_ver: HANDLER_SPEC_CURRENT_VERSION,
 
             runtime: String::new(),
             exec: String::new(),
