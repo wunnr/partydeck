@@ -3,9 +3,9 @@ use x11rb::protocol::randr::ConnectionExt as _;
 
 #[derive(Clone)]
 pub struct Monitor {
-    name: String,
-    width: u32,
-    height: u32,
+    pub name: String,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Monitor {

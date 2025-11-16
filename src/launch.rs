@@ -5,14 +5,17 @@ use crate::app::{PartyConfig, PadFilterType};
 use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
+use crate::monitor::Monitor;
 use crate::paths::*;
 use crate::profiles::{create_profile, create_profile_gamesave};
 use crate::util::*;
+use nix::sys::signal::{Signal, kill};
+use nix::sys::wait::{WaitStatus, waitpid};
+use std::collections::HashSet;
+use nix::unistd::Pid;
 
 use crate::layout_manager;
-// use layout-manager::partydeck_layout_manager;
-// mod crate::layout_manager::*;
-// use crate::src::layout_manager::*;
+
 
 pub fn setup_profiles(
     h: &Handler,
@@ -35,12 +38,29 @@ pub fn setup_profiles(
     Ok(())
 }
 
+
 pub fn launch_game(
     h: &Handler,
     input_devices: &[DeviceInfo],
-    instances: &Vec<Instance>,
+    instances: &mut Vec<Instance>,
     cfg: &PartyConfig,
+    primary_monitor: Monitor
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let mut compositor_pid = None;
+    let mut way_display_name = None;
+    let mut x11_display_name = None;
+    if let Some(compositor) = &cfg.nested_compositor { // check if we should use river
+        let (way_display_name_tmp, x11_display_name_tmp, compositor_monitor,  compositor_pid_tmp) = spawn_comp_and_get_display( &compositor, primary_monitor).expect("Failed to get display name!");
+        compositor_pid = Some(compositor_pid_tmp);
+        way_display_name = Some(way_display_name_tmp);
+        x11_display_name = Some(x11_display_name_tmp);
+
+        set_instance_resolutions(instances, &compositor_monitor, cfg, compositor=="river");
+    }
+
+    let mut wait_processes = HashSet::new();
+
+
     let new_cmds = launch_cmds(h, input_devices, instances, cfg)?;
     print_launch_cmds(&new_cmds);
 
@@ -62,7 +82,16 @@ pub fn launch_game(
 
     let mut i = 0;
     for mut cmd in new_cmds {
-        let handle = cmd.spawn()?;
+        if let Some(disp) = &way_display_name {
+            cmd.env("WAYLAND_DISPLAY", disp);
+            // cmd.env("XDG_SESSION_TYPE","WAYLAND");
+            // cmd.env("SDL_VIDEODRIVER", "wayland");
+        }
+        if let Some(disp) = &x11_display_name {
+            cmd.env("DISPLAY", disp);
+        }
+        let handle = cmd.spawn().expect("Game argument error");
+        wait_processes.insert(Pid::from_raw((handle.id()) as i32));
         handles.push(handle);
 
         if i < instances.len() - 1 {
@@ -71,8 +100,26 @@ pub fn launch_game(
         i += 1;
     }
 
-    for mut handle in handles {
-        handle.wait()?;
+    loop {
+        match waitpid(None, None)? {
+            WaitStatus::Exited(pid, _) | WaitStatus::Signaled(pid, _, _) => {
+                println!("Child pid {} died!", pid);
+                wait_processes.remove(&pid);
+                println!("CHILD PROCESSES LEFT: {}",wait_processes.len());
+                if wait_processes.len() == 0 || Some(pid) == compositor_pid {
+                    break;
+                }
+            }
+            WaitStatus::StillAlive => continue,
+            _ => continue,
+        }
+    }
+
+    for pid in wait_processes {
+        let _ = kill(pid, Signal::SIGTERM);
+    }
+    if let Some(comp_pid) = compositor_pid {
+        let _ = kill(comp_pid, Signal::SIGTERM);
     }
 
     Ok(())
@@ -91,6 +138,7 @@ pub fn launch_cmds(
         true => BIN_GSC_KBM.as_path(),
         false => Path::new("gamescope"),
     };
+    // let gamescope = Path::new("gamescope"); // DAVID FIX
 
     if (runtime == "scout" && !PATH_STEAM.join("bin32/steam-runtime/run.sh").exists())
         || (runtime == "soldier"
@@ -169,6 +217,13 @@ pub fn launch_cmds(
         }
 
         // Gamescope args
+        if cfg.gamescope_resize_support {
+            cmd.args(["--nested-folow-window-scale","1"]);
+        }
+        if cfg.gamescope_force_fullscreen {
+            cmd.arg("--force-windows-fullscreen");
+        }
+
         cmd.args([
             "-W",
             &instance.width.to_string(),
@@ -207,6 +262,7 @@ pub fn launch_cmds(
             }
             if !kbms.is_empty() {
                 cmd.arg(format!("--libinput-hold-dev={}", kbms));
+                cmd.arg("--grab");
             }
         }
         cmd.arg("--");

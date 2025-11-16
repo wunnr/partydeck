@@ -16,7 +16,7 @@ use crate::layout_manager::wayland_client_code::river_layout_v3::river_layout_ma
 use crate::layout_manager::wayland_client_code::river_control_unstable_v1::zriver_command_callback_v1::ZriverCommandCallbackV1;
 use crate::layout_manager::wayland_client_code::river_control_unstable_v1::zriver_control_v1::ZriverControlV1;
 use std::env;
-
+use super::super::Monitor;
 
 struct LayoutState {
     river_layout: Option<RiverLayoutV3>,
@@ -37,7 +37,6 @@ impl Dispatch<WlRegistry, ()> for LayoutState {
         ) {
         match event {
             RegistryEvent::Global { name, interface, version } => {
-                // println!("OFFERED RESOURCE: {} {} {}", name, interface, version);
 
                 if interface == "zriver_control_v1" {
                     let control = registry.bind::<ZriverControlV1, _, _>(name, version, qh, ());
@@ -69,14 +68,11 @@ impl Dispatch<WlRegistry, ()> for LayoutState {
                     }
                     state.outputs_name = name;
                     state.outputs+=1;
-                    // println!("Added one to wl output! NEW: {}", state.outputs);
                 }
             }
             RegistryEvent::GlobalRemove { name } => {
-                // println!("REMOVED RESOURCE: {}, removal: {}", name, state.outputs_name);
                 if name == state.outputs_name {
                     state.outputs = state.outputs.saturating_sub(1); // Prevent errors from underflow
-                    // println!("New outputs count: {}", state.outputs);
                     if state.outputs == 0 {
                         if let Some(ctrl) = &state.river_control {
                             if let Some(seat) = &state.seat {
@@ -167,20 +163,23 @@ impl_empty_dispatch!(LayoutState,WlSeat);
 impl_empty_dispatch!(LayoutState,WlOutput);
 
 
-// enum LayoutManagerType {
-//     NONE,
-//     KDE,    // Currently, this just sends dbus or not when starting
-//     RIVER   // Currently, this dose nothing lol
-// }
 
-pub fn start_layout_manager(fd: i32) { // , layout_manager: LayoutManagerType
+pub fn start_layout_manager(fd: i32, main_monitor: &Monitor) { // , layout_manager: LayoutManagerType
     let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
 
-    file.write_all(
-    env::var_os("WAYLAND_DISPLAY")
-            .expect("Failed to decode wayland display")
-            .as_encoded_bytes()
-    ).expect("Unable to write to fd!");
+    let way_disp_str = env::var_os("WAYLAND_DISPLAY").expect("Failed to decode wayland display");
+    let x11_disp_str = env::var_os("DISPLAY"        ).expect("Failed to decode x11 display"    );
+    let way_disp = way_disp_str.as_encoded_bytes();
+    let x11_disp = x11_disp_str.as_encoded_bytes();
+    let mut buf = Vec::with_capacity(4+4+4+4+way_disp.len()+x11_disp.len());
+    buf.extend_from_slice(&(way_disp.len() as u32).to_be_bytes());
+    buf.extend_from_slice(&(x11_disp.len() as u32).to_be_bytes());
+    buf.extend_from_slice(&(main_monitor.width  as u32).to_be_bytes());
+    buf.extend_from_slice(&(main_monitor.height as u32).to_be_bytes());
+    buf.extend_from_slice(way_disp);
+    buf.extend_from_slice(x11_disp);
+    file.write_all(&buf).expect("Failed to write display data");
+    println!("Wrote monitor info over fd: X11: {:?}, Wayland: {:?}, Width: {}, Heigh: {}", x11_disp_str, way_disp_str, main_monitor.width, main_monitor.height);
 
     let _ = file.flush();
     drop(file);
@@ -198,10 +197,6 @@ pub fn start_layout_manager(fd: i32) { // , layout_manager: LayoutManagerType
         outputs_name: 0,
         outputs: 0
     };
-
-    // if (layout_manager == LayoutManagerType::KDE) {
-    //     // kwin_dbus_start_script();
-    // }
 
     loop {
         if let Err(e) = event_queue.blocking_dispatch(&mut state) {

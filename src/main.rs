@@ -9,8 +9,6 @@ mod paths;
 mod profiles;
 mod util;
 
-use std::path::PathBuf;
-use std::str::FromStr;
 
 use crate::app::*;
 use crate::handler::Handler;
@@ -45,21 +43,19 @@ fn main() -> eframe::Result {
         std::process::exit(0);
     }
 
-    if let Some(layout_index) = args.iter().position(|arg| arg == "--layout") {
+    if let Some(layout_index) = args.iter().position(|arg| arg == "--internal-layout") {
         if let Some(next_arg) = args.get(layout_index + 1) {
             let exec: i32 = next_arg.parse::<i32>().expect("Cant parse layout fd");
-            layout_manager::start_layout_manager(exec);
+            layout_manager::start_layout_manager(exec, &monitors[0]);
             std::process::exit(0);
         } else {
-            let river_path = PathBuf::from_str("river").expect("Failed to locate river");
-            println!("RIVER FOUND: {} - Exists: {}", river_path.display(), river_path.exists()); // fails, look more into how we can check river in path...
-            let display_name = spawn_river_and_get_display(args[0].as_str(), river_path).expect("Failed to get display name!");
-            println!("DISPLAY NAME AABB: {}", display_name);
-            unsafe { std::env::set_var("WAYLAND_DISPLAY", display_name) };
+            println!("ERROR: --internal-layout is an internal api, partydeck SHOULD NOT be started with --internal-layout unless you know what your doing");
+            println!("{}", USAGE_TEXT);
+            std::process::exit(0);
         }
     }
 
-    if std::env::args().any(|arg| arg == "--kwin") {
+    if std::env::args().any(|arg| arg == "--kwin") { // We should depreciate this option as it will cause problems later, and its not really needed anymore
         let args: Vec<String> = std::env::args().filter(|arg| arg != "--kwin").collect();
 
         let (w, h) = (monitors[0].width(), monitors[0].height());

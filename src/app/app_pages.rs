@@ -510,6 +510,29 @@ impl PartyApp {
             }
         });
 
+        let mut comp_selected_text = "None".to_owned();
+        if let Some(comp_opt) = &self.options.nested_compositor {
+            comp_selected_text = match comp_opt.as_str() {
+                "river" => "River".to_owned(),
+                "kwin_wayland" => "Kwin".to_owned(),
+                _=>comp_selected_text,
+            }
+        }
+
+        egui::ComboBox::from_label("Used nested compositor")
+            .selected_text(comp_selected_text)
+            .show_ui(ui, |ui| {
+                if ui.selectable_label(self.options.nested_compositor == Some("kwin_wayland".to_owned()), "Kwin").clicked() {
+                    self.options.nested_compositor = Some("kwin_wayland".to_owned());
+                }
+                if ui.selectable_label(self.options.nested_compositor == Some("river".to_owned()), "River").clicked() {
+                    self.options.nested_compositor = Some("river".to_owned());
+                }
+                if ui.selectable_label(self.options.nested_compositor == None, "None").clicked() {
+                    self.options.nested_compositor = None;
+                }
+            });
+
         ui.horizontal(|ui| {
             let filter_label = ui.label("Controller filter");
             let r1 = ui.radio_value(
@@ -609,6 +632,14 @@ impl PartyApp {
             &mut self.options.kbm_support,
             "Enable keyboard and mouse support through custom Gamescope",
         );
+        let resize_support = ui.checkbox(
+            &mut self.options.gamescope_resize_support,
+            "Enable gamescope resize support",
+        );
+        let gamescope_force_fullscreen = ui.checkbox(
+            &mut self.options.gamescope_force_fullscreen,
+            "Force gamescope to fullscreen games",
+        );
         let gamescope_force_grab_cursor_check = ui.checkbox(
             &mut self.options.gamescope_force_grab_cursor,
             "Force grab cursor for Gamescope",
@@ -620,8 +651,14 @@ impl PartyApp {
         if gamescope_sdl_backend_check.hovered() {
             self.infotext = "Runs gamescope sessions using the SDL backend. This is required for multi-monitor support. If unsure, leave this checked. If gamescope sessions only show a black screen or give an error (especially on Nvidia + Wayland), try disabling this.".to_string();
         }
+        if resize_support.hovered() {
+            self.infotext = "Runs a custom Gamescope build with support for resizing dynamicly (use with river nested compositor).".to_string();
+        }
         if kbm_support_check.hovered() {
             self.infotext = "Runs a custom Gamescope build with support for holding keyboards and mice. If you want to use your own Gamescope installation, uncheck this.".to_string();
+        }
+        if gamescope_force_fullscreen.hovered() {
+            self.infotext = "Sets --force-fullscreen-windows on gamescope in order to properly have games size.".to_string();
         }
         if gamescope_force_grab_cursor_check.hovered() {
             self.infotext = "Sets the \"--force-grab-cursor\" flag in Gamescope. This keeps the cursor within the Gamescope window. If unsure, leave this unchecked.".to_string();

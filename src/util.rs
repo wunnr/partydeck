@@ -1,3 +1,4 @@
+use crate::monitor::Monitor;
 use crate::paths::{PATH_HOME, PATH_PARTY};
 
 use dialog::{Choice, DialogBox};
@@ -14,6 +15,8 @@ use nix::poll;
 use nix::unistd;
 use nix::fcntl;
 use std::os::fd::FromRawFd;
+use nix::unistd::Pid;
+use std::env;
 
 pub fn msg(title: &str, contents: &str) {
     let _ = dialog::Message::new(contents).title(title).show();
@@ -272,19 +275,40 @@ impl OsFmt for PathBuf {
     }
 }
 
-pub fn spawn_river_and_get_display(base_program: &str, river_executable: PathBuf) -> Option<String> {
+pub fn spawn_comp_and_get_display(comp_executable: &str, primary_monitor: Monitor) -> Option<(String, String, Monitor, Pid)> {
+    let base_program_buf = env::current_exe().expect("Failed to get partydeck executable");
+    let base_program = base_program_buf.to_str()?;
+    
     let (read_fd, write_fd) = unistd::pipe().unwrap();
 
     let flags = fcntl::FdFlag::from_bits_truncate(fcntl::fcntl(&write_fd, fcntl::FcntlArg::F_GETFD).unwrap());
     fcntl::fcntl(&write_fd, fcntl::FcntlArg::F_SETFD(flags & !fcntl::FdFlag::FD_CLOEXEC)).expect("Failed to open pipe to river");
 
-    let mut cmd = std::process::Command::new(river_executable);
-    cmd.args(["-c",format!("{} --layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+    let mut cmd = std::process::Command::new(comp_executable);
 
+    match comp_executable {
+        "river" => {
+            cmd.args(["-c",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+        },
+        "kwin_wayland"  => {
+            cmd.args([
+                "--xwayland","--exit-with-session",
+                "--height", &primary_monitor.height.to_string(),
+                "--width", &primary_monitor.width.to_string(),
+                "--",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+        },
+        _=> {
+            println!("Unknown comp ({}); trusting that it works, MAY FAIL", comp_executable);
+            cmd.args(["--",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+        },
+    }
+    
+
+    let child_pid;
     match cmd.spawn() {
-        Ok(_) => {},
+        Ok(child) => {child_pid = Pid::from_raw((child.id()) as i32)},
         Err(e) => {
-            eprintln!("[partydeck] Failed to start river: {}", e);
+            eprintln!("[partydeck] Failed to start COMP ({}): {}", comp_executable, e);
             return None;
         }
     }
@@ -293,67 +317,35 @@ pub fn spawn_river_and_get_display(base_program: &str, river_executable: PathBuf
     let mut fds = [poll::PollFd::new(read_fd.as_fd(), poll::PollFlags::POLLIN)];
     let res = poll::poll(&mut fds, 2000 as u16).unwrap_or(0);
     if res == 0 {
-        eprintln!("[partydeck] NO DATA FROM RIVER HANDLER");
+        eprintln!("[partydeck] NO DATA FROM COMP HANDLER");
         return None;
     }
 
-    let mut buf = [0u8; 1024]; // only store 1024 chars, anything outside that is bs
     let mut reader = unsafe { std::fs::File::from_raw_fd(read_fd.into_raw_fd()) };
-    let n = reader.read(&mut buf);
-    match n {
-        Ok(_) => {},
-        Err(e) => {
-            eprintln!("[partydeck] Failed to read response from river: {}", e);
-            return None;
-        }
-    }
-    let n = n.ok()?;
-    let string_buf = String::from_utf8_lossy(&buf[..n]);
 
-    println!("Got DISPLAY_WAYLAND from river: {}", string_buf);
+    let mut len_buf = [0u8; 4];
+    reader.read_exact(&mut len_buf).expect("Failed to read FD");
+    let way_disp_len = u32::from_be_bytes(len_buf) as usize;
+    reader.read_exact(&mut len_buf).expect("Failed to read FD");
+    let x11_disp_len = u32::from_be_bytes(len_buf) as usize;
+
+
+    reader.read_exact(&mut len_buf).expect("Failed to read FD");
+    let monitor_width = u32::from_be_bytes(len_buf);
+    reader.read_exact(&mut len_buf).expect("Failed to read FD");
+    let monitor_height = u32::from_be_bytes(len_buf);
+    let main_monitor = Monitor { name: "REMOTE_MONITOR".to_owned(), width: monitor_width, height: monitor_height };
+
+
+    let mut way_disp_buf = vec![0u8; way_disp_len];
+    reader.read_exact(&mut way_disp_buf).expect("Failed to read FD");
+    let mut x11_disp_buf = vec![0u8; x11_disp_len];
+    reader.read_exact(&mut x11_disp_buf).expect("Failed to read FD");
+
+    let way_disp = String::from_utf8(way_disp_buf).expect("Failed to decode FD");
+    let x11_disp = String::from_utf8(x11_disp_buf).expect("Failed to decode FD");
+
+    println!("Got DISPLAY_WAYLAND from COMP: {} and DISPLAY: {}, with resolution: {}x{}", way_disp, x11_disp, monitor_width, monitor_height);
     
-    return Some(string_buf.to_string());
-}
-
-pub fn spawn_kde_and_get_display(base_program: &str) -> Option<String> {
-    let (read_fd, write_fd) = unistd::pipe().unwrap();
-
-    let flags = fcntl::FdFlag::from_bits_truncate(fcntl::fcntl(&write_fd, fcntl::FcntlArg::F_GETFD).unwrap());
-    fcntl::fcntl(&write_fd, fcntl::FcntlArg::F_SETFD(flags & !fcntl::FdFlag::FD_CLOEXEC)).expect("Failed to open pipe to river");
-
-    let mut cmd = std::process::Command::new("river");
-    cmd.args(["-c",format!("{} --layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
-
-    match cmd.spawn() {
-        Ok(_) => {},
-        Err(e) => {
-            eprintln!("[partydeck] Failed to start river: {}", e);
-            return None;
-        }
-    }
-
-
-    let mut fds = [poll::PollFd::new(read_fd.as_fd(), poll::PollFlags::POLLIN)];
-    let res = poll::poll(&mut fds, 2000 as u16).unwrap_or(0);
-    if res == 0 {
-        eprintln!("[partydeck] NO DATA FROM RIVER HANDLER");
-        return None;
-    }
-
-    let mut buf = [0u8; 1024]; // only store 1024 chars, anything outside that is bs
-    let mut reader = unsafe { std::fs::File::from_raw_fd(read_fd.into_raw_fd()) };
-    let n = reader.read(&mut buf);
-    match n {
-        Ok(_) => {},
-        Err(e) => {
-            eprintln!("[partydeck] Failed to read response from river: {}", e);
-            return None;
-        }
-    }
-    let n = n.ok()?;
-    let string_buf = String::from_utf8_lossy(&buf[..n]);
-
-    println!("Got DISPLAY_WAYLAND from river: {}", string_buf);
-    
-    return Some(string_buf.to_string());
+    return Some((way_disp.to_string(), x11_disp.to_string(), main_monitor, child_pid));
 }

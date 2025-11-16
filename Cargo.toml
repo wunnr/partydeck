@@ -20,9 +20,9 @@ zip = { version = "5.1.1", features = ["deflate", "deflate64"], default-features
 wayland-client = "0.31.11"
 wayland-scanner = "0.31.7"
 wayland-backend = "0.3.11"
-nix = { version = "0.30.1", features = ["poll", "fs"] }
+nix = { version = "0.30.1", default-features = false, features = ["poll", "fs", "signal"] }
 
-reqwest = { version = "0.12.15", features = ["blocking", "json"] }
+reqwest = { version = "0.12.15", default-features = false, features = ["blocking", "json"] }
 
 # Below are used to reduce package requirements, please fix later, idk how tho; we dont want any of these
 #url = { version = "2.5.7", default-features = false} # I WANA GET RID OF THIS PLEASE
