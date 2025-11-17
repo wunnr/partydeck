@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::app::PartyConfig;
+use crate::app::{PartyConfig, PadFilterType};
 use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
@@ -148,6 +148,9 @@ pub fn launch_cmds(
             cmd.env("WINEPREFIX", &path_pfx);
             cmd.env("PROTON_VERB", "run");
             cmd.env("PROTONPATH", protonpath);
+        }
+        if cfg.pad_filter_type != PadFilterType::NoSteamInput {
+            cmd.env("SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD", "1");
         }
         if !h.env.is_empty() {
             for env_var in h.env.split_whitespace() {
