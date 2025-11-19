@@ -36,13 +36,14 @@ impl PartyApp {
         ui.horizontal_wrapped(|ui| {
             ui.label("Thank you to");
             ui.hyperlink_to(" GitHub", "https://github.com/wunnr/partydeck");
-            ui.label("contributors:")
+            ui.label("contributors/handler creators:")
         });
         ui.horizontal_wrapped(|ui| {
             ui.hyperlink_to("@Blahkaey", "https://github.com/Blahkaey");
             ui.hyperlink_to("@blckink", "https://github.com/blckink");
             ui.hyperlink_to("@felipecrs", "https://github.com/felipecrs");
             ui.hyperlink_to("@framilano", "https://github.com/framilano");
+            ui.hyperlink_to("@FrancisBernard34", "https://github.com/FrancisBernard34");
             ui.hyperlink_to("@Rudicito", "https://github.com/Rudicito");
             ui.hyperlink_to("@Tau5", "https://github.com/Tau5");
             ui.hyperlink_to("@Twig6943", "https://github.com/Twig6943");
