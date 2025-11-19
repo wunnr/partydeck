@@ -69,19 +69,19 @@ impl PartyApp {
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("❌ Quit").clicked() {
+                if ui.button("❌").clicked() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
                 ui.add(egui::Separator::default().vertical());
                 let version_label = match self.needs_update {
-                    true => format!("v{} (Update Available)", env!("CARGO_PKG_VERSION")),
+                    true => format!("v{} (🆕 available)", env!("CARGO_PKG_VERSION")),
                     false => format!("v{}", env!("CARGO_PKG_VERSION")),
                 };
                 ui.hyperlink_to(version_label, "https://github.com/wunnr/partydeck/releases");
                 ui.add(egui::Separator::default().vertical());
                 ui.hyperlink_to("⮋", "https://drive.proton.me/urls/D9HBKM18YR#zG8XC8yVy9WL")
                     .on_hover_text("Download Game Handlers");
-                ui.hyperlink_to("💰", "https://ko-fi.com/wunner")
+                ui.hyperlink_to("♥", "https://ko-fi.com/wunner")
                     .on_hover_text("Support PartyDeck Development");
                 ui.hyperlink_to(
                     "🖹",
