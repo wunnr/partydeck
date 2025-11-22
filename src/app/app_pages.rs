@@ -5,7 +5,7 @@ use crate::input::*;
 use crate::paths::*;
 use crate::profiles::*;
 use crate::util::*;
-use crate::monitor::get_monitors_sdl;
+use crate::monitor::get_monitors_x11;
 
 use dialog::DialogBox;
 use eframe::egui::RichText;
@@ -63,10 +63,15 @@ impl PartyApp {
         });
         ui.separator();
 
-        match self.settings_page {
-            SettingsPage::General => self.display_settings_general(ui),
-            SettingsPage::Gamescope => self.display_settings_gamescope(ui),
-        }
+        egui::ScrollArea::vertical()
+            .max_height(ui.available_height() - 30.0)
+            .auto_shrink(false)
+            .show(ui, |ui| {
+                match self.settings_page {
+                    SettingsPage::General => self.display_settings_general(ui),
+                    SettingsPage::Gamescope => self.display_settings_gamescope(ui),
+                }
+        });
 
         ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
             ui.horizontal(|ui| {
@@ -317,7 +322,7 @@ impl PartyApp {
                 } else {
                     self.instances.clear();
                     self.input_devices = scan_input_devices(&self.options.pad_filter_type);
-                    self.monitors = get_monitors_sdl();
+                    self.monitors = get_monitors_x11().expect("Failed to get monitors");
                     self.profiles = scan_profiles(true);
                     self.instance_add_dev = None;
                     self.cur_page = MenuPage::Instances;
@@ -474,6 +479,11 @@ impl PartyApp {
     }
 
     pub fn display_settings_general(&mut self, ui: &mut Ui) {
+        let check_for_app_updates = ui.checkbox(&mut self.options.check_for_updates, "Check for partydeck updates");
+        if check_for_app_updates.hovered() {
+            self.infotext = "DEFAULT: Enabled\n\nWARNING: CONTACTS GITHUB's SERVERS ON EVERY LAUNCH\nMakes partydeck check online for updates durring each launch, and notfies user when avaliable.".to_string();
+        }
+
         let enable_kwin_script_check = ui.checkbox(
             &mut self.options.enable_kwin_script,
             "(KDE) Automatically resize/reposition instances using KWin script",

@@ -165,7 +165,6 @@ pub fn clear_tmp() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn check_for_partydeck_update() -> bool {
-    // Try to get the latest release tag from GitHub
     if let Ok(client) = reqwest::blocking::Client::new()
         .get("https://api.github.com/repos/wunnr/partydeck/releases/latest")
         .header("User-Agent", "partydeck")
@@ -181,20 +180,11 @@ pub fn check_for_partydeck_update() -> bool {
                 // Get current version from env!
                 let current_version = env!("CARGO_PKG_VERSION");
 
-
                 return latest_version == current_version;
-                // // Compare versions using semver
-                // if let (Ok(latest_semver), Ok(current_semver)) = (
-                //     semver::Version::parse(latest_version),
-                //     semver::Version::parse(current_version),
-                // ) {
-                //     return latest_semver > current_semver;
-                // }
             }
         }
     }
 
-    // Default to false if any part of the process fails
     false
 }
 

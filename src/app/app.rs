@@ -92,9 +92,11 @@ impl PartyApp {
             task: None,
         };
 
-        app.spawn_task("Checking for updates", move || {
-            app.needs_update = check_for_partydeck_update();
-        });
+        if app.options.check_for_updates {
+            app.spawn_task("Checking for updates", move || {
+                app.needs_update = check_for_partydeck_update();
+            });
+        }
 
         app
     }

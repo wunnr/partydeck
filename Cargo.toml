@@ -6,15 +6,22 @@ edition = "2024"
 [dependencies]
 dialog = "0.3.0"
 eframe = { version = "0.32.1", features = ["x11", "wayland", "accesskit", "default_fonts", "glow"], default-features = false}
-egui_extras = { version = "0.32.1", features = ["all_loaders"] }
+egui_extras = { version = "0.32.1", features = ["file", "image"], default-features = false } # We dont use "svg" right now, but WE SHOULD
 evdev = "=0.13.0"
 fastrand = "2.3.0"
-reqwest = { version = "0.12.15", features = ["blocking", "json"] }
 rfd = "0.15.3"
 serde = "1.0.219"
 serde_json = "1.0.140"
 walkdir = "2.5.0"
-x11rb = "0.13.1"
-zbus = "5.5.0"
+x11rb = { version = "0.13.1", default-features = false }
+zbus = { version = "5.5.0", features = ["async-io", "blocking-api"], default-features = false }
 steamlocate = "2.0.1"
 zip = { version = "5.1.1", features = ["deflate", "deflate64"], default-features = false }
+
+reqwest = { version = "0.12.15", features = ["blocking", "json"] }
+
+# Below are used to reduce package requirements, please fix later, idk how tho; we dont want any of these
+#url = { version = "2.5.7", default-features = false} # I WANA GET RID OF THIS PLEASE
+#tiff = { version = "0.10.3", default-features = false} # I WANA GET RID OF THIS PLEASE
+image = { version = "0.25.8", features = ["png"], default-features = false }
+zvariant = { version = "5.5.0", features = [], default-features = false }

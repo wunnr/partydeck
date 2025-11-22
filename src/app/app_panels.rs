@@ -3,7 +3,7 @@ use crate::Handler;
 use crate::handler::import_pd2;
 use crate::handler::scan_handlers;
 use crate::input::*;
-use crate::monitor::get_monitors_sdl;
+use crate::monitor::get_monitors_x11;
 use crate::profiles::scan_profiles;
 use crate::util::*;
 
@@ -65,7 +65,7 @@ impl PartyApp {
             
             if ui.button("🖵 🔄").clicked() {
                 self.instances.clear();
-                self.monitors = get_monitors_sdl();
+                self.monitors = get_monitors_x11().expect("Failed to get monitors");
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -73,9 +73,12 @@ impl PartyApp {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
                 ui.add(egui::Separator::default().vertical());
-                let version_label = match self.needs_update {
-                    true => format!("v{} (🆕 available)", env!("CARGO_PKG_VERSION")),
-                    false => format!("v{}", env!("CARGO_PKG_VERSION")),
+                let version_label = match self.options.check_for_updates {
+                    true => match self.needs_update {
+                        true => format!("v{} (🆕 available)", env!("CARGO_PKG_VERSION")),
+                        false => format!("v{}", env!("CARGO_PKG_VERSION")),
+                    },
+                    false => format!("(Frozen) v{}", env!("CARGO_PKG_VERSION")),
                 };
                 ui.hyperlink_to(version_label, "https://github.com/wunnr/partydeck/releases");
                 ui.add(egui::Separator::default().vertical());

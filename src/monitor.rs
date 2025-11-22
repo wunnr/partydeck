@@ -23,7 +23,7 @@ impl Monitor {
 }
 
 
-fn get_monitors_x11() -> Result<Vec<Monitor>, Box<dyn std::error::Error>> {
+pub fn get_monitors_x11() -> Result<Vec<Monitor>, Box<dyn std::error::Error>> {
     let (con, screen_num) = x11rb::connect(None)?;
     let screen = &con.setup().roots[screen_num];
 
