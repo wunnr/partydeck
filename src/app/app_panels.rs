@@ -3,7 +3,7 @@ use crate::Handler;
 use crate::handler::import_pd2;
 use crate::handler::scan_handlers;
 use crate::input::*;
-use crate::monitor::get_monitors_x11;
+use crate::monitor::get_monitors_errorless;
 use crate::profiles::scan_profiles;
 use crate::util::*;
 
@@ -65,7 +65,7 @@ impl PartyApp {
             
             if ui.button("🖵 🔄").clicked() {
                 self.instances.clear();
-                self.monitors = get_monitors_x11().expect("Failed to get monitors");
+                self.monitors = get_monitors_errorless();
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

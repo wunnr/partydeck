@@ -5,7 +5,7 @@ use crate::input::*;
 use crate::paths::*;
 use crate::profiles::*;
 use crate::util::*;
-use crate::monitor::get_monitors_x11;
+use crate::monitor::get_monitors_errorless;
 
 use dialog::DialogBox;
 use eframe::egui::RichText;
@@ -322,7 +322,7 @@ impl PartyApp {
                 } else {
                     self.instances.clear();
                     self.input_devices = scan_input_devices(&self.options.pad_filter_type);
-                    self.monitors = get_monitors_x11().expect("Failed to get monitors");
+                    self.monitors = get_monitors_errorless();
                     self.profiles = scan_profiles(true);
                     self.instance_add_dev = None;
                     self.cur_page = MenuPage::Instances;

@@ -24,7 +24,7 @@ fn main() -> eframe::Result {
     }
 
     // Using x11 direct monitor queries (hopefully) identical to SDL, just without the full SDL library
-    let monitors = get_monitors_direct();
+    let monitors = get_monitors_errorless();
 
     println!("[partydeck] Monitors detected:");
     for monitor in &monitors {
