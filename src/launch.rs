@@ -228,11 +228,13 @@ pub fn launch_cmds(
             let path_prof_home = path_prof.join("home");
             cmd.env("HOME", &path_prof_home);
             // Also bind the Steam directory as the Steam runtimes look for HOME/.steam
-            cmd.args([
-                "--bind",
-                &PATH_STEAM.to_string_lossy(),
-                &path_prof_home.join(".steam").to_string_lossy(),
-            ]);
+            if !runtime.is_empty() || h.steam_appid.is_some() {
+                cmd.args([
+                    "--bind",
+                    &PATH_STEAM.to_string_lossy(),
+                    &path_prof_home.join(".steam").to_string_lossy(),
+                ]);
+            }
         }
 
         for subpath in &h.game_null_paths {
