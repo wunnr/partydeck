@@ -1,4 +1,5 @@
 mod app;
+mod layout_manager;
 mod handler;
 mod input;
 mod instance;
@@ -7,6 +8,7 @@ mod monitor;
 mod paths;
 mod profiles;
 mod util;
+
 
 use crate::app::*;
 use crate::handler::Handler;
@@ -21,7 +23,8 @@ fn main() -> eframe::Result {
         std::env::set_var("SDL_VIDEODRIVER", "x11");
     }
 
-    let monitors = get_monitors_sdl();
+    // Using x11 direct monitor queries (hopefully) identical to SDL, just without the full SDL library
+    let monitors = get_monitors_errorless();
 
     println!("[partydeck] Monitors detected:");
     for monitor in &monitors {
@@ -40,7 +43,19 @@ fn main() -> eframe::Result {
         std::process::exit(0);
     }
 
-    if std::env::args().any(|arg| arg == "--kwin") {
+    if let Some(layout_index) = args.iter().position(|arg| arg == "--internal-layout") {
+        if let Some(next_arg) = args.get(layout_index + 1) {
+            let exec: i32 = next_arg.parse::<i32>().expect("Cant parse layout fd");
+            layout_manager::start_layout_manager(exec, &monitors[0]);
+            std::process::exit(0);
+        } else {
+            println!("ERROR: --internal-layout is an internal api, partydeck SHOULD NOT be started with --internal-layout unless you know what your doing");
+            println!("{}", USAGE_TEXT);
+            std::process::exit(0);
+        }
+    }
+
+    if std::env::args().any(|arg| arg == "--kwin") { // We should depreciate this option as it will cause problems later, and its not really needed anymore
         let args: Vec<String> = std::env::args().filter(|arg| arg != "--kwin").collect();
 
         let (w, h) = (monitors[0].width(), monitors[0].height());

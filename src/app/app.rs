@@ -9,6 +9,8 @@ use crate::monitor::Monitor;
 use crate::profiles::*;
 use crate::util::*;
 
+use crate::layout_manager;
+
 use eframe::egui::{self, Key};
 
 #[derive(Eq, PartialEq)]
@@ -92,9 +94,11 @@ impl PartyApp {
             task: None,
         };
 
-        app.spawn_task("Checking for updates", move || {
-            app.needs_update = check_for_partydeck_update();
-        });
+        if app.options.check_for_updates {
+            app.spawn_task("Checking for updates", move || {
+                app.needs_update = check_for_partydeck_update();
+            });
+        }
 
         app
     }
@@ -409,7 +413,7 @@ impl PartyApp {
                 &self.options,
             );
         } else {
-            set_instance_resolutions(&mut self.instances, &self.monitors[0], &self.options);
+            set_instance_resolutions(&mut self.instances, &self.monitors[0], &self.options, false);
         }
         set_instance_names(&mut self.instances, &self.profiles);
 
@@ -419,13 +423,16 @@ impl PartyApp {
             cur_handler!(self).to_owned()
         };
 
-        let instances = self.instances.clone();
+        let mut instances = self.instances.clone();
         let dev_infos: Vec<DeviceInfo> = self.input_devices.iter().map(|p| p.info()).collect();
 
         let cfg = self.options.clone();
         let _ = save_cfg(&cfg);
 
         self.cur_page = MenuPage::Home;
+
+        let clone_monitor = self.monitors[0].clone();
+
         self.spawn_task(
             "Launching...\n\nDon't press any buttons or move any analog sticks or mice.",
             move || {
@@ -444,12 +451,12 @@ impl PartyApp {
                     msg("Failed mounting game directories", &format!("{err}"));
                     return;
                 }
-                if let Err(err) = launch_game(&handler, &dev_infos, &instances, &cfg) {
+                if let Err(err) = launch_game(&handler, &dev_infos, &mut instances, &cfg, clone_monitor) {
                     println!("[partydeck] Error launching instances: {}", err);
                     msg("Launch Error", &format!("{err}"));
                 }
                 if cfg.enable_kwin_script {
-                    if let Err(err) = kwin_dbus_unload_script() {
+                    if let Err(err) = layout_manager::kwin_dbus_unload_script() {
                         println!("[partydeck] Error unloading KWin script: {}", err);
                         msg("Failed unloading KWin script", &format!("{err}"));
                     }

@@ -1,8 +1,11 @@
+use x11rb::connection::Connection;
+use x11rb::protocol::randr::ConnectionExt as _;
+
 #[derive(Clone)]
 pub struct Monitor {
-    name: String,
-    width: u32,
-    height: u32,
+    pub name: String,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Monitor {
@@ -19,17 +22,42 @@ impl Monitor {
     }
 }
 
-// Using sdl seems to be the most reliable way to get monitor info in a way that lines up with what gamescope expects, since its --display-index option uses sdl.
-pub fn get_monitors_sdl() -> Vec<Monitor> {
-    let video = sdl2::init().unwrap().video().unwrap();
-    let count = video.num_video_displays().unwrap();
+
+fn get_monitors_x11() -> Result<Vec<Monitor>, Box<dyn std::error::Error>> {
+    let (con, screen_num) = x11rb::connect(None)?;
+    let screen = &con.setup().roots[screen_num];
+
+    let res = con.randr_get_screen_resources(screen.root)?.reply()?;
     let mut monitors = Vec::new();
-    for i in 0..count {
-        monitors.push(Monitor {
-            name: video.display_name(i).unwrap(),
-            width: video.display_bounds(i).unwrap().width(),
-            height: video.display_bounds(i).unwrap().height(),
-        });
+    for output in res.outputs {
+        if let Ok(info) = con.randr_get_output_info(output, 0)?.reply() {
+            if info.crtc != x11rb::NONE {
+                if let Ok(crtc) = con.randr_get_crtc_info(info.crtc, 0)?.reply() {
+                    monitors.push(Monitor {
+                        name: String::from_utf8_lossy(&info.name).into(),
+                        width: crtc.width.into(),
+                        height: crtc.height.into(),
+                    });
+                }
+            }
+        }
     }
-    monitors
+
+
+    Ok(monitors)
+}
+
+pub fn get_monitors_errorless() -> Vec<Monitor> {
+    let mut monitors = Vec::new();
+
+    if let Ok(ret_monitors) = get_monitors_x11() {
+        monitors = ret_monitors;
+    }
+
+    if monitors.len() == 0 { // Quick patch for those who have no x11 visable monitors, so we dont just panic.
+        println!("[PARTYDECK] Failed to get monitors; using assumed 1920x1080");
+        monitors.push(Monitor {name: "Partydeck Virtual Monitor".to_string(), width: 1920, height: 1080});
+    }
+
+    return monitors;
 }

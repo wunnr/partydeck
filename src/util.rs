@@ -1,11 +1,22 @@
+use crate::monitor::Monitor;
 use crate::paths::{PATH_HOME, PATH_PARTY};
 
 use dialog::{Choice, DialogBox};
 use eframe::egui::TextBuffer;
 use rfd::FileDialog;
 use std::error::Error;
+use std::io::Read;
+use std::os::fd::AsFd;
+use std::os::fd::IntoRawFd;
 use std::path::PathBuf;
 use std::process::Command;
+
+use nix::poll;
+use nix::unistd;
+use nix::fcntl;
+use std::os::fd::FromRawFd;
+use nix::unistd::Pid;
+use std::env;
 
 pub fn msg(title: &str, contents: &str) {
     let _ = dialog::Message::new(contents).title(title).show();
@@ -165,13 +176,13 @@ pub fn clear_tmp() -> Result<(), Box<dyn Error>> {
 }
 
 pub fn check_for_partydeck_update() -> bool {
-    // Try to get the latest release tag from GitHub
     if let Ok(client) = reqwest::blocking::Client::new()
         .get("https://api.github.com/repos/wunnr/partydeck/releases/latest")
         .header("User-Agent", "partydeck")
         .send()
     {
         if let Ok(release) = client.json::<serde_json::Value>() {
+            println!("{}",release["tag_name"].as_str().unwrap());
             // Extract the tag name (vX.X.X format)
             if let Some(tag_name) = release["tag_name"].as_str() {
                 // Strip the 'v' prefix
@@ -180,62 +191,15 @@ pub fn check_for_partydeck_update() -> bool {
                 // Get current version from env!
                 let current_version = env!("CARGO_PKG_VERSION");
 
-                // Compare versions using semver
-                if let (Ok(latest_semver), Ok(current_semver)) = (
-                    semver::Version::parse(latest_version),
-                    semver::Version::parse(current_version),
-                ) {
-                    return latest_semver > current_semver;
-                }
+                return latest_version == current_version;
             }
         }
     }
 
-    // Default to false if any part of the process fails
     false
 }
 
-// Sends the splitscreen script to the active KWin session through DBus
-pub fn kwin_dbus_start_script(file: PathBuf) -> Result<(), Box<dyn Error>> {
-    println!(
-        "[partydeck] util::kwin_dbus_start_script - Loading script {}...",
-        file.display()
-    );
-    if !file.exists() {
-        return Err("[partydeck] util::kwin_dbus_start_script - Script file doesn't exist!".into());
-    }
 
-    let conn = zbus::blocking::Connection::session()?;
-    let proxy = zbus::blocking::Proxy::new(
-        &conn,
-        "org.kde.KWin",
-        "/Scripting",
-        "org.kde.kwin.Scripting",
-    )?;
-
-    let _: i32 = proxy.call("loadScript", &(file.to_string_lossy(), "splitscreen"))?;
-    println!("[partydeck] util::kwin_dbus_start_script - Script loaded. Starting...");
-    let _: () = proxy.call("start", &())?;
-
-    println!("[partydeck] util::kwin_dbus_start_script - KWin script started.");
-    Ok(())
-}
-
-pub fn kwin_dbus_unload_script() -> Result<(), Box<dyn Error>> {
-    println!("[partydeck] util::kwin_dbus_unload_script - Unloading splitscreen script...");
-    let conn = zbus::blocking::Connection::session()?;
-    let proxy = zbus::blocking::Proxy::new(
-        &conn,
-        "org.kde.KWin",
-        "/Scripting",
-        "org.kde.kwin.Scripting",
-    )?;
-
-    let _: bool = proxy.call("unloadScript", &("splitscreen"))?;
-
-    println!("[partydeck] util::kwin_dbus_unload_script - Script unloaded.");
-    Ok(())
-}
 
 pub trait SanitizePath {
     fn sanitize_path(&self) -> String;
@@ -309,4 +273,79 @@ impl OsFmt for PathBuf {
             format!("Z:{}", path_fmt)
         }
     }
+}
+
+pub fn spawn_comp_and_get_display(comp_executable: &str, primary_monitor: Monitor) -> Option<(String, String, Monitor, Pid)> {
+    let base_program_buf = env::current_exe().expect("Failed to get partydeck executable");
+    let base_program = base_program_buf.to_str()?;
+    
+    let (read_fd, write_fd) = unistd::pipe().unwrap();
+
+    let flags = fcntl::FdFlag::from_bits_truncate(fcntl::fcntl(&write_fd, fcntl::FcntlArg::F_GETFD).unwrap());
+    fcntl::fcntl(&write_fd, fcntl::FcntlArg::F_SETFD(flags & !fcntl::FdFlag::FD_CLOEXEC)).expect("Failed to open pipe to river");
+
+    let mut cmd = std::process::Command::new(comp_executable);
+
+    match comp_executable {
+        "river" => {
+            cmd.args(["-c",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+        },
+        "kwin_wayland"  => {
+            cmd.args([
+                "--xwayland","--exit-with-session",
+                "--height", &primary_monitor.height.to_string(),
+                "--width", &primary_monitor.width.to_string(),
+                "--",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+        },
+        _=> {
+            println!("Unknown comp ({}); trusting that it works, MAY FAIL", comp_executable);
+            cmd.args(["--",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+        },
+    }
+    
+
+    let child_pid;
+    match cmd.spawn() {
+        Ok(child) => {child_pid = Pid::from_raw((child.id()) as i32)},
+        Err(e) => {
+            eprintln!("[partydeck] Failed to start COMP ({}): {}", comp_executable, e);
+            return None;
+        }
+    }
+
+
+    let mut fds = [poll::PollFd::new(read_fd.as_fd(), poll::PollFlags::POLLIN)];
+    let res = poll::poll(&mut fds, 2000 as u16).unwrap_or(0);
+    if res == 0 {
+        eprintln!("[partydeck] NO DATA FROM COMP HANDLER");
+        return None;
+    }
+
+    let mut reader = unsafe { std::fs::File::from_raw_fd(read_fd.into_raw_fd()) };
+
+    let mut len_buf = [0u8; 4];
+    reader.read_exact(&mut len_buf).expect("Failed to read FD");
+    let way_disp_len = u32::from_be_bytes(len_buf) as usize;
+    reader.read_exact(&mut len_buf).expect("Failed to read FD");
+    let x11_disp_len = u32::from_be_bytes(len_buf) as usize;
+
+
+    reader.read_exact(&mut len_buf).expect("Failed to read FD");
+    let monitor_width = u32::from_be_bytes(len_buf);
+    reader.read_exact(&mut len_buf).expect("Failed to read FD");
+    let monitor_height = u32::from_be_bytes(len_buf);
+    let main_monitor = Monitor { name: "REMOTE_MONITOR".to_owned(), width: monitor_width, height: monitor_height };
+
+
+    let mut way_disp_buf = vec![0u8; way_disp_len];
+    reader.read_exact(&mut way_disp_buf).expect("Failed to read FD");
+    let mut x11_disp_buf = vec![0u8; x11_disp_len];
+    reader.read_exact(&mut x11_disp_buf).expect("Failed to read FD");
+
+    let way_disp = String::from_utf8(way_disp_buf).expect("Failed to decode FD");
+    let x11_disp = String::from_utf8(x11_disp_buf).expect("Failed to decode FD");
+
+    println!("Got DISPLAY_WAYLAND from COMP: {} and DISPLAY: {}, with resolution: {}x{}", way_disp, x11_disp, monitor_width, monitor_height);
+    
+    return Some((way_disp.to_string(), x11_disp.to_string(), main_monitor, child_pid));
 }
