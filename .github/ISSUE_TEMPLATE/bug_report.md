@@ -1,6 +1,7 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Report a bug in the launcher or an issue that affects all games played through
+  PartyDeck
 title: "[Bug] "
 labels: bug
 assignees: wunnr
@@ -23,8 +24,8 @@ A clear and concise description of what you expected to happen.
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
 
-**Terminal output**
-Post any relevant terminal output from the program at the time the error occurs.
+**Logs**
+Posting logs can be super helpful with troubleshooting. If you're launching PartyDeck from the gaming mode launcher script, it should create a `log.txt` file next to the executable. If you're launching from desktop, run the launcher from a terminal and copy-paste the output.
 
 **Setup Information**
  - Linux Distro: [e.g. Arch]
