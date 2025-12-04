@@ -6,28 +6,43 @@ use std::io::BufReader;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Default)]
 pub enum PadFilterType {
     All,
+    #[default]
     NoSteamInput,
     OnlySteamInput,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PartyConfig {
+    #[serde(default = "default_true")]
     pub enable_kwin_script: bool,
+    #[serde(default = "default_true")]
     pub gamescope_fix_lowres: bool,
+    #[serde(default = "default_true")]
     pub gamescope_sdl_backend: bool,
+    #[serde(default)]
     pub gamescope_force_grab_cursor: bool,
+    #[serde(default = "default_true")]
     pub kbm_support: bool,
+    #[serde(default)]
     pub proton_version: String,
+    #[serde(default = "default_true")]
     pub proton_separate_pfxs: bool,
     #[serde(default)]
     pub vertical_two_player: bool,
+    #[serde(default)]
     pub pad_filter_type: PadFilterType,
     #[serde(default)]
     pub allow_multiple_instances_on_same_device: bool,
+    #[serde(default = "default_true")]
     pub profile_unique_dirs: bool,
+    #[serde(default)]
     pub disable_mount_gamedirs: bool,
 }
 
