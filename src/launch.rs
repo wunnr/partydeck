@@ -101,7 +101,7 @@ pub fn launch_cmds(
         .collect();
 
     for (i, instance) in instances.iter().enumerate() {
-        let gamedir = if h.is_saved_handler() && !cfg.disable_mount_gamedirs {
+        let gamedir = if h.is_saved_handler() && !cfg.disable_mount_gamedirs && cfg.profile_unique_dirs {
             PATH_PARTY.join("tmp").join(format!("game-{}", i))
         } else {
             PathBuf::from(h.get_game_rootpath()?)
@@ -220,20 +220,22 @@ pub fn launch_cmds(
             }
         }
 
-        if win {
-            let path_pfx_user = path_pfx.join("drive_c/users/steamuser");
-            cmd.arg("--bind")
-                .args([&path_prof.join("windata"), &path_pfx_user]);
-        } else {
-            let path_prof_home = path_prof.join("home");
-            cmd.env("HOME", &path_prof_home);
-            // Also bind the Steam directory as the Steam runtimes look for HOME/.steam
-            if !runtime.is_empty() || h.steam_appid.is_some() {
-                cmd.args([
-                    "--bind",
-                    &PATH_STEAM.to_string_lossy(),
-                    &path_prof_home.join(".steam").to_string_lossy(),
-                ]);
+        if cfg.profile_unique_dirs {
+            if win {
+                let path_pfx_user = path_pfx.join("drive_c/users/steamuser");
+                cmd.arg("--bind")
+                    .args([&path_prof.join("windata"), &path_pfx_user]);
+            } else {
+                let path_prof_home = path_prof.join("home");
+                cmd.env("HOME", &path_prof_home);
+                // Also bind the Steam directory as the Steam runtimes look for HOME/.steam
+                if !runtime.is_empty() || h.steam_appid.is_some() {
+                    cmd.args([
+                        "--bind",
+                        &PATH_STEAM.to_string_lossy(),
+                        &path_prof_home.join(".steam").to_string_lossy(),
+                    ]);
+                }
             }
         }
 
