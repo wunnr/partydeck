@@ -1,6 +1,8 @@
 #!/bin/sh
 
 # You might need to restart your pc if sharun doesn't create `AppDir` in this directory (It should create dirs on its own)
+
+# Grab release from https://github.com/wunnr/partydeck/releases/tag/v0.8.5 and extract it to the same dir as this .sh file
 set -eu
 
 ARCH="$(uname -m)"
@@ -22,13 +24,11 @@ rm -rf AppDir dist appinfo
 wget --retry-connrefused --tries=30 "$SHARUN" -O ./quick-sharun
 chmod +x ./quick-sharun
 
-# Point to your binaries
-./quick-sharun ./appimage/partydeck /AppDir/bin/partydeck
+# Point to binaries
+./quick-sharun ./partydeck ./bin/gamescope-kbm ./bin/umu-run /usr/bin/fuse-overlayfs
+# Copy rest
 
-# Copy rest safely
-for ext in so; do
-    cp -v ./*.$ext ./AppDir/bin/ 2>/dev/null || :
-done
+cp -r res/ AppDir/bin/
 
 # Make AppImage
 ./quick-sharun --make-appimage
