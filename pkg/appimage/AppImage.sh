@@ -13,9 +13,7 @@ export ADD_HOOKS="self-updater.bg.hook"
 export OUTNAME=partydeck-anylinux-"$ARCH".AppImage
 export DESKTOP=partydeck.desktop
 export ICON=./partydeck.png
-export DEPLOY_OPENGL=0
-export DEPLOY_VULKAN=0
-export DEPLOY_DOTNET=0
+export OUTPATH=./dist
 
 #Remove leftovers
 rm -rf AppDir dist appinfo
@@ -39,8 +37,5 @@ cp -r res/goldberg/ ./AppDir/lib
 
 # Make AppImage
 ./quick-sharun --make-appimage
-
-mkdir -p ./dist
-mv -v ./*.AppImage* ./dist
 
 echo "All Done!"
