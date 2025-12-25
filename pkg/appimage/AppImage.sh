@@ -25,9 +25,12 @@ wget --retry-connrefused --tries=30 "$SHARUN" -O ./quick-sharun
 chmod +x ./quick-sharun
 
 # Point to binaries
-./quick-sharun ./partydeck ./bin/gamescope-kbm ./bin/umu-run /usr/bin/fuse-overlayfs
+./quick-sharun ./partydeck ./bin/gamescope-kbm ./bin/umu-run /usr/bin/fuse-overlayfs /usr/bin/bwrap
 
 # Copy rest
+mkdir -p ./AppDir/bin/bin
+cp ./bin/gamescope-kbm ./Appdir/bin/bin
+
 mkdir -p ./AppDir/bin/res
 cp res/splitscreen_kwin.js ./AppDir/bin/res
 cp res/splitscreen_kwin_vertical.js ./AppDir/bin/res
