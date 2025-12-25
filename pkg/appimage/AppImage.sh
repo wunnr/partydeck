@@ -26,9 +26,13 @@ chmod +x ./quick-sharun
 
 # Point to binaries
 ./quick-sharun ./partydeck ./bin/gamescope-kbm ./bin/umu-run /usr/bin/fuse-overlayfs
-# Copy rest
 
-cp -r res/ AppDir/bin/
+# Copy rest
+mkdir -p ./AppDir/bin/res
+cp res/splitscreen_kwin.js ./AppDir/bin/res
+cp res/splitscreen_kwin_vertical.js ./AppDir/bin/res
+
+cp -r res/goldberg/ ./AppDir/lib
 
 # Make AppImage
 ./quick-sharun --make-appimage
