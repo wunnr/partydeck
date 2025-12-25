@@ -29,7 +29,7 @@ chmod +x ./quick-sharun
 
 # Copy rest
 mkdir -p ./AppDir/bin/bin
-cp ./bin/gamescope-kbm ./Appdir/bin/bin
+ln -f ./AppDir/sharun ./AppDir/bin/bin/gamescope-kbm
 
 mkdir -p ./AppDir/bin/res
 cp res/splitscreen_kwin.js ./AppDir/bin/res
