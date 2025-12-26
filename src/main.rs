@@ -9,7 +9,7 @@ mod profiles;
 mod util;
 
 use crate::app::*;
-use crate::handler::Handler;
+use crate::handler::{Handler, load_handler_by_name};
 use crate::monitor::*;
 use crate::paths::PATH_PARTY;
 use crate::profiles::remove_guest_profiles;
@@ -89,8 +89,30 @@ fn main() -> eframe::Result {
         }
     }
 
+    let mut auto_handler_id = String::new();
+    if let Some(auto_index) = args.iter().position(|arg| arg == "--auto") {
+        if let Some(next_arg) = args.get(auto_index + 1) {
+            auto_handler_id = next_arg.clone();
+        } else {
+            eprintln!("{}", USAGE_TEXT);
+            std::process::exit(1);
+        }
+    }
+
     let handler_lite = if !exec.is_empty() {
         Some(Handler::from_cli(&exec, &execargs))
+    } else {
+        None
+    };
+
+    let handler_for_auto = if !auto_handler_id.is_empty() {
+        match load_handler_by_name(&auto_handler_id) {
+            Ok(h) => Some(h),
+            Err(e) => {
+                eprintln!("[partydeck] Failed to load handler '{}': {}", auto_handler_id, e);
+                std::process::exit(1);
+            }
+        }
     } else {
         None
     };
@@ -139,10 +161,20 @@ fn main() -> eframe::Result {
             // This gives us image support:
             egui_extras::install_image_loaders(&cc.egui_ctx);
             cc.egui_ctx.set_zoom_factor(scale);
-            Ok(Box::<PartyApp>::new(PartyApp::new(
-                monitors.clone(),
-                handler_lite,
-            )))
+            
+            if let Some(handler_auto) = handler_for_auto {
+                // Create AutoLaunchApp
+                Ok(Box::<AutoLaunchApp>::new(AutoLaunchApp::new(
+                    monitors.clone(),
+                    handler_auto,
+                )))
+            } else {
+                // Existing PartyApp logic
+                Ok(Box::<PartyApp>::new(PartyApp::new(
+                    monitors.clone(),
+                    handler_lite,
+                )))
+            }
         }),
     )
 }
@@ -154,6 +186,7 @@ Usage: partydeck [OPTIONS]
 Options:
     --exec <executable>   Execute the specified executable in splitscreen. If this isn't specified, PartyDeck will launch in the regular GUI mode.
     --args [args]         Specify arguments for the executable to be launched with. Must be quoted if containing spaces.
+    --auto <handler_id>   Auto-launch mode: bypass GUI and show player input confirmation popup. Handler ID is the handler directory name.
     --fullscreen          Start the GUI in fullscreen mode
     --kwin                Launch PartyDeck inside of a KWin session
 "#;
