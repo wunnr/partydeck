@@ -36,13 +36,8 @@ pub static PATH_STEAM: LazyLock<PathBuf> = LazyLock::new(|| {
 });
 
 pub static BIN_UMU_RUN: LazyLock<PathBuf> = LazyLock::new(|| {
-    let bin_candidates = [PathBuf::from("/usr/bin"), PathBuf::from("/usr/local/bin")];
-
-    for candidate in &bin_candidates {
-        let bin = candidate.join("umu-run");
-        if bin.exists() {
-            return bin;
-        }
+    if let Some(umu_run) = pathsearch::find_executable_in_path("umu-run") {
+        return umu_run;
     }
 
     let bin = env::current_exe().unwrap().parent().unwrap().join("bin");
@@ -50,13 +45,8 @@ pub static BIN_UMU_RUN: LazyLock<PathBuf> = LazyLock::new(|| {
 });
 
 pub static BIN_GSC_KBM: LazyLock<PathBuf> = LazyLock::new(|| {
-    let bin_candidates = [PathBuf::from("/usr/bin"), PathBuf::from("/usr/local/bin")];
-
-    for candidate in &bin_candidates {
-        let bin = candidate.join("gamescope-kbm");
-        if bin.exists() {
-            return bin;
-        }
+    if let Some(gsc_kbm) = pathsearch::find_executable_in_path("gamescope-kbm") {
+        return gsc_kbm;
     }
 
     let bin = env::current_exe().unwrap().parent().unwrap().join("bin");
