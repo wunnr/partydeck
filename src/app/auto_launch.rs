@@ -117,33 +117,80 @@ impl AutoLaunchApp {
         false
     }
 
-    fn render_player_slot(&self, ui: &mut egui::Ui, slot: usize) {
-        let instance = self.instances.get(slot);
+    fn render_instruction_box(&self, ui: &mut egui::Ui) {
+        egui::Frame::default()
+            .fill(egui::Color32::from_rgb(30, 30, 40))
+            .corner_radius(12.0)
+            .inner_margin(egui::Margin::symmetric(32, 24))
+            .show(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    // Title
+                    ui.label(
+                        egui::RichText::new("Press input to add player")
+                            .size(20.0)
+                            .strong(),
+                    );
 
-        let frame = if instance.is_some() {
-            egui::Frame::default()
-                .fill(egui::Color32::from_rgb(40, 60, 80))
-                .inner_margin(16.0)
-        } else {
-            egui::Frame::default()
-                .fill(egui::Color32::from_rgb(20, 20, 20))
-                .inner_margin(16.0)
-        };
+                    ui.add_space(16.0);
 
-        frame.show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.heading(format!("Player {}", slot + 1));
-
-                if let Some(inst) = instance {
-                    if let Some(&dev_idx) = inst.devices.first() {
-                        let dev = &self.input_devices[dev_idx];
-                        ui.label(egui::RichText::new(dev.emoji()).size(48.0));
-                        ui.label(dev.fancyname());
-                    }
-                } else {
-                    ui.label(egui::RichText::new("Press A/Z/Right-Click to Join").weak());
-                }
+                    // Device icons centered
+                    ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new("🎮").size(48.0));
+                            ui.add_space(16.0);
+                            ui.label(egui::RichText::new("🖮").size(48.0));
+                            ui.add_space(16.0);
+                            ui.label(egui::RichText::new("🖱").size(48.0));
+                        });
+                    });
+                });
             });
+    }
+
+    fn render_player_boxes(&self, ui: &mut egui::Ui) {
+        let player_count = self.instances.len();
+        if player_count == 0 {
+            return;
+        }
+
+        ui.horizontal(|ui| {
+            let box_width = 180.0;
+            let spacing = 16.0;
+
+            for (idx, instance) in self.instances.iter().enumerate() {
+                if idx > 0 {
+                    ui.add_space(spacing);
+                }
+
+                egui::Frame::default()
+                    .fill(egui::Color32::from_rgb(40, 60, 80))
+                    .corner_radius(12.0)
+                    .inner_margin(16.0)
+                    .show(ui, |ui| {
+                        ui.set_width(box_width);
+                        ui.vertical_centered(|ui| {
+                            // Profile name
+                            ui.label(
+                                egui::RichText::new(&instance.profname)
+                                    .size(16.0)
+                                    .strong(),
+                            );
+
+                            ui.add_space(8.0);
+
+                            // Device icon
+                            if let Some(&dev_idx) = instance.devices.first() {
+                                let dev = &self.input_devices[dev_idx];
+                                ui.label(egui::RichText::new(dev.emoji()).size(48.0));
+
+                                ui.add_space(8.0);
+
+                                // Device name
+                                ui.label(dev.fancyname());
+                            }
+                        });
+                    });
+            }
         });
     }
 
@@ -228,30 +275,34 @@ impl eframe::App for AutoLaunchApp {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if self.task.is_some() {
-                ui.disable();
-            }
+        egui::CentralPanel::default().show(ctx, |_ui| {});
 
-            // Render 2x2 grid
-            ui.columns(2, |cols| {
-                cols[0].vertical(|ui| {
-                    self.render_player_slot(ui, 0);
-                    ui.add_space(8.0);
-                    self.render_player_slot(ui, 2);
-                });
-                cols[1].vertical(|ui| {
-                    self.render_player_slot(ui, 1);
-                    ui.add_space(8.0);
-                    self.render_player_slot(ui, 3);
-                });
+        // Render instruction box using Area for proper centering
+        let screen_rect = ctx.screen_rect();
+        let upper_y = screen_rect.height() * 0.15;
+        
+        egui::Area::new("instruction_box".into())
+            .anchor(egui::Align2::CENTER_TOP, egui::Vec2::new(0.0, upper_y))
+            .interactable(false)
+            .show(ctx, |ui| {
+                if self.task.is_some() {
+                    ui.disable();
+                }
+                self.render_instruction_box(ui);
             });
 
-            if !self.instances.is_empty() {
-                ui.separator();
-                ui.label("Press START or ENTER to begin");
-            }
-        });
+        // Render player boxes using Area for proper centering
+        let lower_y = screen_rect.height() * 0.5;
+        
+        egui::Area::new("player_boxes".into())
+            .anchor(egui::Align2::CENTER_TOP, egui::Vec2::new(0.0, lower_y))
+            .interactable(false)
+            .show(ctx, |ui| {
+                if self.task.is_some() {
+                    ui.disable();
+                }
+                self.render_player_boxes(ui);
+            });
 
         // Loading overlay
         if let Some(handle) = self.task.take() {
