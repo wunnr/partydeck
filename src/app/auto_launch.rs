@@ -121,7 +121,7 @@ impl AutoLaunchApp {
         egui::Frame::default()
             .fill(egui::Color32::from_rgb(30, 30, 40))
             .corner_radius(12.0)
-            .inner_margin(egui::Margin::symmetric(32, 24))
+            .inner_margin(egui::Margin::symmetric(0, 24))
             .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     // Title
@@ -134,14 +134,13 @@ impl AutoLaunchApp {
                     ui.add_space(16.0);
 
                     // Device icons centered
-                    ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("🎮").size(48.0));
-                            ui.add_space(16.0);
-                            ui.label(egui::RichText::new("🖮").size(48.0));
-                            ui.add_space(16.0);
-                            ui.label(egui::RichText::new("🖱").size(48.0));
-                        });
+                    ui.horizontal(|ui| {
+                        ui.add_space((ui.available_width() - (48.0 * 3.0 + 16.0 * 2.0)) / 2.0);
+                        ui.label(egui::RichText::new("🎮").size(48.0));
+                        ui.add_space(16.0);
+                        ui.label(egui::RichText::new("🖮").size(48.0));
+                        ui.add_space(16.0);
+                        ui.label(egui::RichText::new("🖱").size(48.0));
                     });
                 });
             });
@@ -279,7 +278,7 @@ impl eframe::App for AutoLaunchApp {
 
         // Render instruction box using Area for proper centering
         let screen_rect = ctx.screen_rect();
-        let upper_y = screen_rect.height() * 0.15;
+        let upper_y = screen_rect.height() * 0.05;
         
         egui::Area::new("instruction_box".into())
             .anchor(egui::Align2::CENTER_TOP, egui::Vec2::new(0.0, upper_y))
