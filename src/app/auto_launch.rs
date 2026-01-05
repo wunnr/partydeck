@@ -20,6 +20,7 @@ pub struct AutoLaunchApp {
     loading_msg: Option<String>,
     loading_since: Option<std::time::Instant>,
     task: Option<std::thread::JoinHandle<()>>,
+    waiting_for_device: Option<usize>, // Index of instance waiting for next device
 }
 
 impl AutoLaunchApp {
@@ -36,6 +37,7 @@ impl AutoLaunchApp {
             loading_msg: None,
             loading_since: None,
             task: None,
+            waiting_for_device: None,
         }
     }
 
@@ -66,6 +68,19 @@ impl AutoLaunchApp {
                         i += 1;
                         continue;
                     }
+                    
+                    // If waiting for a device to add to existing player
+                    if let Some(instance_idx) = self.waiting_for_device {
+                        if self.is_device_in_any_instance(i) {
+                            i += 1;
+                            continue;
+                        }
+                        self.instances[instance_idx].devices.push(i);
+                        self.waiting_for_device = None;
+                        i += 1;
+                        continue;
+                    }
+                    
                     if !self.options.allow_multiple_instances_on_same_device
                         && self.is_device_in_any_instance(i)
                     {
@@ -146,7 +161,7 @@ impl AutoLaunchApp {
             });
     }
 
-    fn render_player_boxes(&self, ui: &mut egui::Ui) {
+    fn render_player_boxes(&mut self, ui: &mut egui::Ui) {
         let player_count = self.instances.len();
         if player_count == 0 {
             return;
@@ -156,11 +171,12 @@ impl AutoLaunchApp {
             let box_width = 180.0;
             let spacing = 16.0;
 
-            for (idx, instance) in self.instances.iter().enumerate() {
+            for idx in 0..self.instances.len() {
                 if idx > 0 {
                     ui.add_space(spacing);
                 }
 
+                let instance = &self.instances[idx];
                 egui::Frame::default()
                     .fill(egui::Color32::from_rgb(40, 60, 80))
                     .corner_radius(12.0)
@@ -177,15 +193,43 @@ impl AutoLaunchApp {
 
                             ui.add_space(8.0);
 
-                            // Device icon
-                            if let Some(&dev_idx) = instance.devices.first() {
+                            // Display all devices
+                            for &dev_idx in &instance.devices {
                                 let dev = &self.input_devices[dev_idx];
                                 ui.label(egui::RichText::new(dev.emoji()).size(48.0));
 
-                                ui.add_space(8.0);
+                                ui.add_space(4.0);
 
-                                // Device name
-                                ui.label(dev.fancyname());
+                                // Device name - first word only for keyboard/mouse
+                                let name = if dev.device_type() == DeviceType::Keyboard
+                                    || dev.device_type() == DeviceType::Mouse {
+                                    dev.fancyname().split_whitespace().next().unwrap_or(dev.fancyname())
+                                } else {
+                                    dev.fancyname()
+                                };
+                                ui.label(name);
+
+                                ui.add_space(4.0);
+                            }
+
+                            ui.add_space(4.0);
+
+                            // Plus button
+                            let is_waiting = self.waiting_for_device == Some(idx);
+                            let button_color = if is_waiting {
+                                egui::Color32::from_rgb(80, 120, 160)
+                            } else {
+                                egui::Color32::from_rgb(60, 100, 140)
+                            };
+                            
+                            let button = egui::Button::new(
+                                egui::RichText::new("+").size(24.0)
+                            )
+                            .fill(button_color)
+                            .min_size(egui::Vec2::new(40.0, 40.0));
+                            
+                            if ui.add(button).clicked() {
+                                self.waiting_for_device = Some(idx);
                             }
                         });
                     });
