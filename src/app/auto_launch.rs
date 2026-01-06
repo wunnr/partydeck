@@ -306,7 +306,11 @@ impl AutoLaunchApp {
                             .min_size(egui::Vec2::new(BUTTON_SIZE, BUTTON_SIZE));
 
                             if ui.add(button).clicked() {
-                                self.waiting_for_device = Some(idx);
+                                if self.waiting_for_device == Some(idx) {
+                                    self.waiting_for_device = None;
+                                } else {
+                                    self.waiting_for_device = Some(idx);
+                                }
                             }
                         });
                     });
