@@ -134,10 +134,13 @@ fn main() -> eframe::Result {
     clear_tmp().unwrap();
 
     let scrheight = monitors[0].height();
-
-    let scale = match fullscreen {
-        true => scrheight as f32 / 560.0,
-        false => 1.3,
+    
+    let scale = if !auto_handler_id.is_empty() {
+        scrheight as f32 / 950.0
+    } else if fullscreen {
+        scrheight as f32 / 560.0
+    } else {
+        1.3
     };
 
     let options = eframe::NativeOptions {
