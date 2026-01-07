@@ -489,44 +489,17 @@ impl AutoLaunchApp {
 
         let handler = self.handler.clone();
         let instances = self.instances.clone();
-        let dev_infos: Vec<DeviceInfo> = self.input_devices.iter().map(|p| p.info()).collect();
         let cfg = self.options.clone();
+        let dev_infos: Vec<DeviceInfo> = self.input_devices.iter().map(|p| p.info()).collect();
 
         self.spawn_task(
             "Launching...\n\nDon't press any buttons or move any analog sticks or mice.",
             move || {
                 sleep(std::time::Duration::from_secs_f32(1.5));
 
-                // Profiles are now managed by UI, no need to create them here
-                // Just call setup_profiles with the selected profiles
-
-                if let Err(err) = setup_profiles(&handler, &instances) {
-                    println!("[partydeck] Error setting up profiles: {}", err);
-                    msg("Failed setting up profiles", &format!("{err}"));
-                    return;
-                }
-                if handler.is_saved_handler()
-                    && !cfg.disable_mount_gamedirs
-                    && let Err(err) = fuse_overlayfs_mount_gamedirs(&handler, &instances)
-                {
-                    println!("[partydeck] Error mounting game directories: {}", err);
-                    msg("Failed mounting game directories", &format!("{err}"));
-                    return;
-                }
-                if let Err(err) = launch_game(&handler, &dev_infos, &instances, &cfg) {
+                if let Err(err) = launch_common(&handler, &dev_infos, &instances, &cfg) {
                     println!("[partydeck] Error launching instances: {}", err);
                     msg("Launch Error", &format!("{err}"));
-                }
-                if cfg.enable_kwin_script {
-                    if let Err(err) = kwin_dbus_unload_script() {
-                        println!("[partydeck] Error unloading KWin script: {}", err);
-                    }
-                }
-                if let Err(err) = remove_guest_profiles() {
-                    println!("[partydeck] Error removing guest profiles: {}", err);
-                }
-                if let Err(err) = clear_tmp() {
-                    println!("[partydeck] Error removing tmp directory: {}", err);
                 }
             },
         );
