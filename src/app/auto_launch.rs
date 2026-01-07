@@ -24,23 +24,11 @@ pub struct AutoLaunchApp {
     profiles: Vec<String>, // Available profiles
 }
 
-const PLAYER_BOX_WIDTH: f32 = 200.0;
-const PLAYER_BOX_MAX_HEIGHT: f32 = 250.0;
-const PLAYER_BOX_SPACING: f32 = 20.0;
-const DEVICE_HEIGHT: f32 = 60.0;
-const DEVICE_SPACING: f32 = 8.0;
-const EMOJI_SIZE: f32 = 41.0;
-const DEVICE_TEXT_SIZE: f32 = 12.0;
-const BUTTON_SIZE: f32 = 28.0;
-const BUTTON_STROKE_NORMAL: f32 = 2.0;
-const BUTTON_STROKE_WAITING: f32 = 3.0;
-const DEVICE_ROW_SPACING: f32 = 8.0;
-
 impl AutoLaunchApp {
     pub fn new(monitors: Vec<Monitor>, handler: Handler) -> Self {
         let options = load_cfg();
         let input_devices = scan_input_devices(&options.pad_filter_type);
-        let profiles = scan_profiles(false);  // Load existing profiles
+        let profiles = scan_profiles(false);
 
         Self {
             handler,
@@ -56,7 +44,7 @@ impl AutoLaunchApp {
         }
     }
 
-    fn handle_input_auto_mode(&mut self, raw_input: &egui::RawInput) {
+    fn handle_input(&mut self, raw_input: &egui::RawInput) {
         // Check for keyboard Enter key (launch)
         if raw_input.events.iter().any(|e| {
             matches!(e, egui::Event::Key {
@@ -70,7 +58,6 @@ impl AutoLaunchApp {
         }
 
         // Handle keyboard arrow keys for profile switching
-        // Keyboard works like controllers - only affects player it's assigned to
         if self.profiles.len() > 1 {
             if raw_input.events.iter().any(|e| {
                 matches!(e, egui::Event::Key {
@@ -265,14 +252,6 @@ impl AutoLaunchApp {
         instance.profname = self.profiles[new_idx].clone();
     }
 
-    fn set_profile(&mut self, player_idx: usize, profile_idx: usize) {
-        if profile_idx < self.profiles.len() {
-            let instance = &mut self.instances[player_idx];
-            instance.profselection = profile_idx;
-            instance.profname = self.profiles[profile_idx].clone();
-        }
-    }
-
     fn render_device_row(
         ui: &mut egui::Ui,
         input_devices: &[InputDevice],
@@ -280,7 +259,7 @@ impl AutoLaunchApp {
     ) {
         let device_width = 70.0;
         let content_width = (device_width * devices.len() as f32)
-            + (DEVICE_SPACING * (devices.len().saturating_sub(1)) as f32);
+            + (8.0 * (devices.len().saturating_sub(1)) as f32);
         let row_padding = ((ui.available_width() - content_width) / 2.0).max(0.0);
         
         ui.horizontal(|ui| {
@@ -298,42 +277,42 @@ impl AutoLaunchApp {
                 };
                 
                 let (rect, _response) = ui.allocate_exact_size(
-                    egui::Vec2::new(device_width, DEVICE_HEIGHT),
+                    egui::Vec2::new(device_width, 60.0),
                     egui::Sense::hover()
                 );
                 
                 let painter = ui.painter();
                 
                 let emoji_pos = egui::pos2(
-                    rect.center().x - EMOJI_SIZE / 2.0,
+                    rect.center().x - 41.0 / 2.0,
                     rect.min.y + 8.0
                 );
                 
                 let text_galley = ui.fonts(|fonts| {
                     fonts.layout_no_wrap(
                         name.to_string(),
-                        egui::FontId::new(DEVICE_TEXT_SIZE, egui::FontFamily::Proportional),
+                        egui::FontId::new(12.0, egui::FontFamily::Proportional),
                         egui::Color32::from_rgb(200, 200, 200)
                     )
                 });
                 
                 let text_pos = egui::pos2(
                     rect.center().x - text_galley.size().x / 2.0,
-                    emoji_pos.y + EMOJI_SIZE + 15.0
+                    emoji_pos.y + 41.0 + 15.0
                 );
                 
                 painter.text(
                     emoji_pos,
                     egui::Align2::LEFT_TOP,
                     dev.emoji(),
-                    egui::FontId::new(EMOJI_SIZE, egui::FontFamily::Proportional),
+                    egui::FontId::new(41.0, egui::FontFamily::Proportional),
                     egui::Color32::WHITE
                 );
                 
                 painter.galley(text_pos, text_galley, egui::Color32::WHITE);
                 
                 if i < devices.len() - 1 {
-                    ui.add_space(DEVICE_SPACING);
+                    ui.add_space(8.0);
                 }
             }
         });
@@ -380,7 +359,7 @@ impl AutoLaunchApp {
         ui.horizontal_centered(|ui| {
             for (idx, instance) in self.instances.iter().enumerate() {
                 if idx > 0 {
-                    ui.add_space(PLAYER_BOX_SPACING);
+                    ui.add_space(20.0);
                 }
 
                 egui::Frame::default()
@@ -389,8 +368,8 @@ impl AutoLaunchApp {
                     .corner_radius(16.0)
                     .inner_margin(20.0)
                     .show(ui, |ui| {
-                        ui.set_width(PLAYER_BOX_WIDTH);
-                        ui.set_max_height(PLAYER_BOX_MAX_HEIGHT);
+                        ui.set_width(200.0);
+                        ui.set_max_height(250.0);
                         
                         ui.vertical_centered(|ui| {
                             // Profile name display
@@ -412,16 +391,16 @@ impl AutoLaunchApp {
                                     chunk,
                                 );
                                 if chunk.len() == 2 {
-                                    ui.add_space(DEVICE_ROW_SPACING);
+                                    ui.add_space(8.0);
                                 }
                             }
 
-                            ui.add_space(ui.available_height() - BUTTON_SIZE);
+                            ui.add_space(ui.available_height() - 28.0);
 
                             // Profile selection arrows and add device button
                             // Calculate content width for manual centering
                             // Account for egui button internal padding (approximately 8px per button)
-                            let buttons_width = 40.0 + 8.0 + BUTTON_SIZE + 8.0 + 40.0; // left + space + add + space + right
+                            let buttons_width = 40.0 + 8.0 + 28.0 + 8.0 + 40.0; // left + space + add + space + right
                             let buttons_padding = ((ui.available_width() - buttons_width) / 2.0).max(0.0);
                             
                             ui.horizontal(|ui| {
@@ -449,9 +428,9 @@ impl AutoLaunchApp {
                                     egui::Color32::from_rgb(30, 30, 40)
                                 };
                                 let button_stroke = if is_waiting {
-                                    egui::Stroke::new(BUTTON_STROKE_WAITING, egui::Color32::WHITE)
+                                    egui::Stroke::new(3.0, egui::Color32::WHITE)
                                 } else {
-                                    egui::Stroke::new(BUTTON_STROKE_NORMAL, egui::Color32::WHITE)
+                                    egui::Stroke::new(2.0, egui::Color32::WHITE)
                                 };
 
                                 let button = egui::Button::new(
@@ -461,7 +440,7 @@ impl AutoLaunchApp {
                                 )
                                 .fill(button_color)
                                 .stroke(button_stroke)
-                                .min_size(egui::Vec2::new(BUTTON_SIZE, BUTTON_SIZE));
+                                .min_size(egui::Vec2::new(28.0, 28.0));
 
                                 if ui.add(button).clicked() {
                                     waiting_actions.push(if is_waiting { None } else { Some(idx) });
@@ -568,7 +547,7 @@ impl eframe::App for AutoLaunchApp {
         if !raw_input.focused || self.task.is_some() {
             return;
         }
-        self.handle_input_auto_mode(raw_input);
+        self.handle_input(raw_input);
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
