@@ -21,6 +21,7 @@ pub struct AutoLaunchApp {
     loading_since: Option<std::time::Instant>,
     task: Option<std::thread::JoinHandle<()>>,
     waiting_for_device: Option<usize>, // Index of instance waiting for next device
+    profiles: Vec<String>, // Available profiles
 }
 
 const PLAYER_BOX_WIDTH: f32 = 200.0;
@@ -39,6 +40,7 @@ impl AutoLaunchApp {
     pub fn new(monitors: Vec<Monitor>, handler: Handler) -> Self {
         let options = load_cfg();
         let input_devices = scan_input_devices(&options.pad_filter_type);
+        let profiles = scan_profiles(false);  // Load existing profiles
 
         Self {
             handler,
@@ -50,11 +52,12 @@ impl AutoLaunchApp {
             loading_since: None,
             task: None,
             waiting_for_device: None,
+            profiles,
         }
     }
 
     fn handle_input_auto_mode(&mut self, raw_input: &egui::RawInput) {
-        // Check for keyboard Enter key
+        // Check for keyboard Enter key (launch)
         if raw_input.events.iter().any(|e| {
             matches!(e, egui::Event::Key {
                 key: egui::Key::Enter,
@@ -64,6 +67,44 @@ impl AutoLaunchApp {
         }) && self.instances.len() > 0 {
             self.prepare_auto_launch();
             return;
+        }
+
+        // Handle keyboard arrow keys for profile switching
+        // Keyboard works like controllers - only affects player it's assigned to
+        if self.profiles.len() > 1 {
+            if raw_input.events.iter().any(|e| {
+                matches!(e, egui::Event::Key {
+                    key: egui::Key::ArrowLeft,
+                    pressed: true,
+                    ..
+                })
+            }) {
+                // Find keyboard device and cycle profile for its player
+                for (dev_idx, dev) in self.input_devices.iter().enumerate() {
+                    if dev.device_type() == DeviceType::Keyboard && dev.enabled() {
+                        if let Some((player_idx, _)) = self.find_device_in_instance(dev_idx) {
+                            self.cycle_profile(player_idx, -1);
+                            break;
+                        }
+                    }
+                }
+            } else if raw_input.events.iter().any(|e| {
+                matches!(e, egui::Event::Key {
+                    key: egui::Key::ArrowRight,
+                    pressed: true,
+                    ..
+                })
+            }) {
+                // Find keyboard device and cycle profile for its player
+                for (dev_idx, dev) in self.input_devices.iter().enumerate() {
+                    if dev.device_type() == DeviceType::Keyboard && dev.enabled() {
+                        if let Some((player_idx, _)) = self.find_device_in_instance(dev_idx) {
+                            self.cycle_profile(player_idx, 1);
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         let mut i = 0;
@@ -113,16 +154,42 @@ impl AutoLaunchApp {
                         continue;
                     }
 
-                    // Create new instance with auto-assigned profile name
-                    let profname = format!("Player{}", self.instances.len() + 1);
+                    // Create new instance with profile selection
+                    let (profname, profselection) = if self.profiles.is_empty() {
+                        // No profiles exist, create one (backward compatibility)
+                        let name = format!("Player{}", self.instances.len() + 1);
+                        let _ = create_profile(&name);
+                        (name, 0)
+                    } else {
+                        // Use the next unassigned profile
+                        let profile_idx = self.find_next_unassigned_profile().unwrap_or(0);
+                        (self.profiles[profile_idx].clone(), profile_idx)
+                    };
+
                     self.instances.push(Instance {
                         devices: vec![i],
                         profname,
-                        profselection: 0,
+                        profselection,
                         monitor: 0,
                         width: 0,
                         height: 0,
                     });
+                }
+                Some(PadButton::Left) => {
+                    // Find which player this device belongs to and cycle profile left
+                    if let Some((player_idx, _)) = self.find_device_in_instance(i) {
+                        if self.profiles.len() > 1 {
+                            self.cycle_profile(player_idx, -1);
+                        }
+                    }
+                }
+                Some(PadButton::Right) => {
+                    // Find which player this device belongs to and cycle profile right
+                    if let Some((player_idx, _)) = self.find_device_in_instance(i) {
+                        if self.profiles.len() > 1 {
+                            self.cycle_profile(player_idx, 1);
+                        }
+                    }
                 }
                 Some(PadButton::StartBtn) => {
                     if self.instances.len() > 0 && self.is_device_in_any_instance(i) {
@@ -142,6 +209,68 @@ impl AutoLaunchApp {
             }
         }
         false
+    }
+
+    fn find_next_unassigned_profile(&self) -> Option<usize> {
+        if self.profiles.is_empty() {
+            return None;
+        }
+        
+        // Collect all currently assigned profile indices
+        let assigned_indices: std::collections::HashSet<usize> = self.instances
+            .iter()
+            .map(|instance| instance.profselection)
+            .collect();
+        
+        // Find the first unassigned profile
+        for (idx, _) in self.profiles.iter().enumerate() {
+            if !assigned_indices.contains(&idx) {
+                return Some(idx);
+            }
+        }
+        
+        // All profiles are assigned, return the first one (cycle back)
+        Some(0)
+    }
+
+    fn find_device_in_instance(&self, dev: usize) -> Option<(usize, usize)> {
+        for (player_idx, instance) in self.instances.iter().enumerate() {
+            for (device_idx, &device) in instance.devices.iter().enumerate() {
+                if device == dev {
+                    return Some((player_idx, device_idx));
+                }
+            }
+        }
+        None
+    }
+
+    fn cycle_profile(&mut self, player_idx: usize, direction: i32) {
+        if self.profiles.is_empty() {
+            return;
+        }
+
+        let instance = &mut self.instances[player_idx];
+        let current = instance.profselection;
+        let len = self.profiles.len();
+
+        let new_idx = if direction > 0 {
+            // Next profile (right arrow)
+            (current + 1) % len
+        } else {
+            // Previous profile (left arrow)
+            current.checked_sub(1).unwrap_or(len - 1)
+        };
+
+        instance.profselection = new_idx;
+        instance.profname = self.profiles[new_idx].clone();
+    }
+
+    fn set_profile(&mut self, player_idx: usize, profile_idx: usize) {
+        if profile_idx < self.profiles.len() {
+            let instance = &mut self.instances[player_idx];
+            instance.profselection = profile_idx;
+            instance.profname = self.profiles[profile_idx].clone();
+        }
     }
 
     fn render_device_row(
@@ -244,6 +373,10 @@ impl AutoLaunchApp {
             return;
         }
 
+        // Collect profile cycling actions to avoid borrowing conflicts
+        let mut profile_actions: Vec<(usize, i32)> = Vec::new();
+        let mut waiting_actions: Vec<Option<usize>> = Vec::new();
+
         ui.horizontal_centered(|ui| {
             for (idx, instance) in self.instances.iter().enumerate() {
                 if idx > 0 {
@@ -260,6 +393,7 @@ impl AutoLaunchApp {
                         ui.set_max_height(PLAYER_BOX_MAX_HEIGHT);
                         
                         ui.vertical_centered(|ui| {
+                            // Profile name display
                             ui.label(
                                 egui::RichText::new(&instance.profname)
                                     .size(22.0)
@@ -284,38 +418,83 @@ impl AutoLaunchApp {
 
                             ui.add_space(ui.available_height() - BUTTON_SIZE);
 
-                            let is_waiting = self.waiting_for_device == Some(idx);
-                            let button_color = if is_waiting {
-                                egui::Color32::WHITE
-                            } else {
-                                egui::Color32::from_rgb(30, 30, 40)
-                            };
-                            let button_stroke = if is_waiting {
-                                egui::Stroke::new(BUTTON_STROKE_WAITING, egui::Color32::WHITE)
-                            } else {
-                                egui::Stroke::new(BUTTON_STROKE_NORMAL, egui::Color32::WHITE)
-                            };
+                            // Profile selection arrows and add device button
+                            // Calculate content width for manual centering
+                            // Account for egui button internal padding (approximately 8px per button)
+                            let buttons_width = 40.0 + 8.0 + BUTTON_SIZE + 8.0 + 40.0; // left + space + add + space + right
+                            let buttons_padding = ((ui.available_width() - buttons_width) / 2.0).max(0.0);
+                            
+                            ui.horizontal(|ui| {
+                                ui.add_space(buttons_padding);
+                                
+                                // Left arrow
+                                let left_btn = egui::Button::new(
+                                    egui::RichText::new("◀").size(18.0)
+                                )
+                                .fill(egui::Color32::from_rgb(30, 30, 40))
+                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                .min_size(egui::Vec2::new(32.0, 32.0));
 
-                            let button = egui::Button::new(
-                                egui::RichText::new(if is_waiting { "⏳" } else { "+" })
-                                    .size(20.0)
-                                    .color(if is_waiting { egui::Color32::BLACK } else { egui::Color32::WHITE })
-                            )
-                            .fill(button_color)
-                            .stroke(button_stroke)
-                            .min_size(egui::Vec2::new(BUTTON_SIZE, BUTTON_SIZE));
-
-                            if ui.add(button).clicked() {
-                                if self.waiting_for_device == Some(idx) {
-                                    self.waiting_for_device = None;
-                                } else {
-                                    self.waiting_for_device = Some(idx);
+                                if ui.add(left_btn).clicked() {
+                                    profile_actions.push((idx, -1));
                                 }
-                            }
+
+                                ui.add_space(8.0);
+
+                                // Add device button
+                                let is_waiting = self.waiting_for_device == Some(idx);
+                                let button_color = if is_waiting {
+                                    egui::Color32::WHITE
+                                } else {
+                                    egui::Color32::from_rgb(30, 30, 40)
+                                };
+                                let button_stroke = if is_waiting {
+                                    egui::Stroke::new(BUTTON_STROKE_WAITING, egui::Color32::WHITE)
+                                } else {
+                                    egui::Stroke::new(BUTTON_STROKE_NORMAL, egui::Color32::WHITE)
+                                };
+
+                                let button = egui::Button::new(
+                                    egui::RichText::new(if is_waiting { "⏳" } else { "+" })
+                                        .size(if is_waiting { 16.0 } else { 20.0 })
+                                        .color(if is_waiting { egui::Color32::BLACK } else { egui::Color32::WHITE })
+                                )
+                                .fill(button_color)
+                                .stroke(button_stroke)
+                                .min_size(egui::Vec2::new(BUTTON_SIZE, BUTTON_SIZE));
+
+                                if ui.add(button).clicked() {
+                                    waiting_actions.push(if is_waiting { None } else { Some(idx) });
+                                }
+
+                                ui.add_space(8.0);
+
+                                // Right arrow
+                                let right_btn = egui::Button::new(
+                                    egui::RichText::new("▶").size(18.0)
+                                )
+                                .fill(egui::Color32::from_rgb(30, 30, 40))
+                                .stroke(egui::Stroke::new(2.0, egui::Color32::WHITE))
+                                .min_size(egui::Vec2::new(32.0, 32.0));
+
+                                if ui.add(right_btn).clicked() {
+                                    profile_actions.push((idx, 1));
+                                }
+                            });
                         });
                     });
             }
         });
+
+        // Apply profile cycling actions
+        for (player_idx, direction) in profile_actions {
+            self.cycle_profile(player_idx, direction);
+        }
+
+        // Apply waiting device actions
+        for action in waiting_actions {
+            self.waiting_for_device = action;
+        }
     }
 
     pub fn prepare_auto_launch(&mut self) {
@@ -339,14 +518,8 @@ impl AutoLaunchApp {
             move || {
                 sleep(std::time::Duration::from_secs_f32(1.5));
 
-                // Create profiles for filled slots
-                for instance in &instances {
-                    if let Err(e) = create_profile(&instance.profname) {
-                        eprintln!("[partydeck] Failed to create profile: {}", e);
-                        msg("Profile Error", &format!("Failed to create profile: {}", e));
-                        return;
-                    }
-                }
+                // Profiles are now managed by UI, no need to create them here
+                // Just call setup_profiles with the selected profiles
 
                 if let Err(err) = setup_profiles(&handler, &instances) {
                     println!("[partydeck] Error setting up profiles: {}", err);
