@@ -141,13 +141,10 @@ impl AutoLaunchApp {
         }
 
         if is_device_in_any_instance(&self.instances, dev_idx) {
-            if self.waiting_for_device.is_none() {
+            if device.device_type() != DeviceType::Gamepad {
                 return false;
             }
             if !self.options.allow_multiple_instances_on_same_device {
-                return false;
-            }
-            if device.device_type() != DeviceType::Gamepad {
                 return false;
             }
         }
