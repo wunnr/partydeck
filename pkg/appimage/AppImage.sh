@@ -2,7 +2,7 @@
 
 # You might need to restart your pc if sharun doesn't create `AppDir` in this directory (It should create dirs on its own)
 
-# Grab release from https://github.com/wunnr/partydeck/releases/tag/v0.8.5 and extract it to the same dir as this .sh file
+# Grab release from https://github.com/wunnr/partydeck/releases and extract it to the same dir as this .sh file
 set -eu
 
 ARCH="$(uname -m)"
@@ -26,15 +26,12 @@ chmod +x ./quick-sharun
 # Point to binaries
 ./quick-sharun ./partydeck ./bin/gamescope-kbm ./bin/umu-run /usr/bin/fuse-overlayfs /usr/bin/bwrap
 
-# Copy rest
-mkdir -p ./AppDir/bin/bin
-ln -f ./AppDir/sharun ./AppDir/bin/bin/gamescope-kbm
+# AppDir stuff
+ln -f ./AppDir/sharun ./AppDir/bin/gamescope-kbm
 
-mkdir -p ./AppDir/bin/res
-cp res/splitscreen_kwin.js ./AppDir/bin/res
-cp res/splitscreen_kwin_vertical.js ./AppDir/bin/res
-
-cp -r res/goldberg/ ./AppDir/lib
+# Res
+mkdir -p ./AppDir/share/partydeck
+cp -r ./res/* ./AppDir/share/partydeck
 
 # Make AppImage
 ./quick-sharun --make-appimage
