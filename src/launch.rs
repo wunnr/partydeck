@@ -6,7 +6,7 @@ use crate::handler::*;
 use crate::input::*;
 use crate::instance::*;
 use crate::paths::*;
-use crate::profiles::{create_profile, create_profile_gamesave};
+use crate::profiles::{create_profile, create_profile_gamesave, remove_guest_profiles};
 use crate::util::*;
 
 pub fn setup_profiles(
@@ -405,6 +405,38 @@ pub fn fuse_overlayfs_mount_gamedirs(
             return Err("fuse-overlayfs mount failed.".into());
         }
     }
+
+    Ok(())
+}
+
+/// Common launch logic used by both AutoLaunchApp and PartyApp.
+/// This function encapsulates the entire launch sequence to avoid code duplication.
+pub fn launch_common(
+    handler: &Handler,
+    dev_infos: &[DeviceInfo],
+    instances: &Vec<Instance>,
+    cfg: &PartyConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Set up profiles
+    setup_profiles(handler, instances)?;
+
+    // Mount game directories if needed
+    if handler.is_saved_handler()
+        && !cfg.disable_mount_gamedirs
+        && cfg.profile_unique_dirs
+    {
+        fuse_overlayfs_mount_gamedirs(handler, instances)?;
+    }
+
+    // Launch the game
+    launch_game(handler, dev_infos, instances, cfg)?;
+
+    // Cleanup operations
+    if cfg.enable_kwin_script {
+        kwin_dbus_unload_script()?;
+    }
+    remove_guest_profiles()?;
+    clear_tmp()?;
 
     Ok(())
 }

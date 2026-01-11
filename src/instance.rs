@@ -94,3 +94,7 @@ pub fn set_instance_names(instances: &mut Vec<Instance>, profiles: &[String]) {
         }
     }
 }
+
+pub fn is_device_in_any_instance(instances: &[Instance], dev: usize) -> bool {
+    instances.iter().any(|instance| instance.devices.contains(&dev))
+}
