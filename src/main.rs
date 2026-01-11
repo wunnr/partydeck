@@ -120,7 +120,7 @@ fn main() -> eframe::Result {
         None
     };
 
-    let fullscreen = std::env::args().any(|arg| arg == "--fullscreen");
+    let fullscreen = !auto_handler_id.is_empty() || std::env::args().any(|arg| arg == "--fullscreen");
 
     std::fs::create_dir_all(PATH_PARTY.join("handlers"))
         .expect("Failed to create handlers directory");
