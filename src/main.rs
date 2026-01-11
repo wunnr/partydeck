@@ -44,6 +44,9 @@ fn main() -> eframe::Result {
         let args: Vec<String> = std::env::args().filter(|arg| arg != "--kwin").collect();
 
         let (w, h) = (monitors[0].width(), monitors[0].height());
+
+        unsafe { std::env::set_var("XDG_CONFIG_HOME", PATH_PARTY.join("kwin")) };
+        
         let mut cmd = std::process::Command::new("kwin_wayland");
 
         cmd.arg("--xwayland");
