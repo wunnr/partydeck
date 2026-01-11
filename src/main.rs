@@ -93,7 +93,7 @@ fn main() -> eframe::Result {
     }
 
     let mut auto_handler_id = String::new();
-    if let Some(auto_index) = args.iter().position(|arg| arg == "--auto") {
+    if let Some(auto_index) = args.iter().position(|arg| arg == "--handler") {
         if let Some(next_arg) = args.get(auto_index + 1) {
             auto_handler_id = next_arg.clone();
         } else {
