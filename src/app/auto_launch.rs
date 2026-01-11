@@ -66,6 +66,17 @@ impl AutoLaunchApp {
             }
         }
 
+        for (dev_idx, dev) in self.input_devices.iter().enumerate() {
+            if dev.device_type() == DeviceType::Keyboard && dev.enabled() {
+                if let Some((player_idx, _)) = self.find_device_in_instance(dev_idx) {
+                    if Self::has_key_event(raw_input, egui::Key::Backspace) {
+                        self.remove_instance(player_idx);
+                        return;
+                    }
+                }
+            }
+        }
+
         for i in 0..self.input_devices.len() {
             if !self.input_devices[i].enabled() {
                 continue;
@@ -112,6 +123,12 @@ impl AutoLaunchApp {
                 Some(PadButton::StartBtn) => {
                     if self.instances.len() > 0 && is_device_in_any_instance(&self.instances, i) {
                         self.prepare_auto_launch();
+                    }
+                }
+                Some(PadButton::BBtn) => {
+                    if let Some((player_idx, _)) = self.find_device_in_instance(i) {
+                        self.remove_instance(player_idx);
+                        break;
                     }
                 }
                 _ => {}
@@ -203,6 +220,20 @@ impl AutoLaunchApp {
 
         instance.profselection = new_idx;
         instance.profname = self.profiles[new_idx].clone();
+    }
+
+    fn remove_instance(&mut self, instance_idx: usize) {
+        self.instances.remove(instance_idx);
+        
+        if let Some(waiting_idx) = self.waiting_for_device {
+            if waiting_idx >= instance_idx {
+                if waiting_idx == instance_idx {
+                    self.waiting_for_device = None;
+                } else {
+                    self.waiting_for_device = Some(waiting_idx - 1);
+                }
+            }
+        }
     }
 
     fn render_instruction_box(&self, ui: &mut egui::Ui) {
