@@ -135,7 +135,10 @@ impl Handler {
     }
 
     pub fn win(&self) -> bool {
-        self.exec.ends_with(".exe") || self.exec.ends_with(".bat")
+        self.exec.ends_with(".exe") || 
+        self.exec.ends_with(".EXE") || 
+        self.exec.ends_with(".bat") ||
+        self.exec.ends_with(".BAT")
     }
 
     pub fn is_saved_handler(&self) -> bool {
