@@ -15,6 +15,7 @@ export DESKTOP=partydeck.desktop
 export ICON=./partydeck.png
 export OUTPATH=./dist
 export DEPLOY_SDL=1
+export DEPLOY_OPENGL=1
 
 #Remove leftovers
 rm -rf AppDir dist appinfo
