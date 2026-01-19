@@ -45,7 +45,7 @@ pub fn launch_game(
             false => "splitscreen_kwin.js",
         };
 
-        kwin_dbus_start_script(PATH_RES.join(script))?;
+        kwin_dbus_start_script(PATH_RES.join(script)).map_err(|e| format!("Failed to start KWin script: {}", e))?;
     }
 
     let sleep_time = match h.pause_between_starts {
@@ -264,14 +264,17 @@ pub fn launch_cmds(
                 cmd.env("SteamGameId", &appid.to_string());
             }
 
+            let sdk32_link = std::fs::read_link(PATH_STEAM.join("sdk32")).map_err(|e| format!("Failed to read sdk32 link: {}", e))?;
+            let sdk64_link = std::fs::read_link(PATH_STEAM.join("sdk64")).map_err(|e| format!("Failed to read sdk64 link: {}", e))?;
+
             cmd.arg("--bind").args([
                 PATH_RES.join("goldberg/linux32"),
-                std::fs::read_link(PATH_STEAM.join("sdk32"))?,
+                sdk32_link,
             ]);
 
             cmd.arg("--bind").args([
                 PATH_RES.join("goldberg/linux64"),
-                std::fs::read_link(PATH_STEAM.join("sdk64"))?,
+                sdk64_link,
             ]);
 
             if win {
