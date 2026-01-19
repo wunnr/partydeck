@@ -6,6 +6,7 @@
 set -eu
 
 ARCH="$(uname -m)"
+DEBLOATED_PKGS="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/get-debloated-pkgs.sh"
 SHARUN="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/quick-sharun.sh"
 
 export ADD_HOOKS="self-updater.bg.hook"
@@ -16,13 +17,19 @@ export ICON=./partydeck.png
 export OUTPATH=./dist
 export DEPLOY_SDL=1
 export DEPLOY_OPENGL=1
+export DEPLOY_VULKAN=1
 
 #Remove leftovers
 rm -rf AppDir dist appinfo
 
 # ADD LIBRARIES
+wget --retry-connrefused --tries=30 "$DEBLOATED_PKGS" -O ./get-debloated-pkgs
 wget --retry-connrefused --tries=30 "$SHARUN" -O ./quick-sharun
+chmod +x ./get-debloated-pkgs
 chmod +x ./quick-sharun
+
+# Debloated pkgs
+./get-debloated-pkgs --add-mesa
 
 # Point to binaries
 ./quick-sharun ./partydeck ./bin/gamescope-kbm ./bin/umu-run /usr/bin/fuse-overlayfs /usr/bin/bwrap
