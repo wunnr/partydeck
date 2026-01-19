@@ -128,7 +128,6 @@ pub fn launch_cmds(
 
         cmd.env("SDL_JOYSTICK_HIDAPI", "0");
         cmd.env("ENABLE_GAMESCOPE_WSI", "0");
-        cmd.env("PROTON_DISABLE_HIDRAW", "1");
         if h.sdl2_override != SDL2Override::No {
             let path_sdl = match h.sdl2_override {
                 SDL2Override::Srt => {
@@ -148,6 +147,10 @@ pub fn launch_cmds(
             cmd.env("WINEPREFIX", &path_pfx);
             cmd.env("PROTON_VERB", "run");
             cmd.env("PROTONPATH", protonpath);
+            cmd.env("PROTON_DISABLE_HIDRAW", "1");
+            if cfg.proton_wow64 {
+                cmd.env("PROTON_USE_WOW64", "1");
+            }
         }
         if cfg.pad_filter_type != PadFilterType::NoSteamInput {
             cmd.env("SDL_GAMECONTROLLER_ALLOW_STEAM_VIRTUAL_GAMEPAD", "1");

@@ -24,6 +24,7 @@ pub enum MenuPage {
 #[derive(Eq, PartialEq)]
 pub enum SettingsPage {
     General,
+    Proton,
     Gamescope,
 }
 

@@ -56,6 +56,7 @@ impl PartyApp {
         ui.horizontal(|ui| {
             ui.heading("Settings");
             ui.selectable_value(&mut self.settings_page, SettingsPage::General, "General");
+            ui.selectable_value(&mut self.settings_page, SettingsPage::Proton, "Proton");
             ui.selectable_value(
                 &mut self.settings_page,
                 SettingsPage::Gamescope,
@@ -66,6 +67,7 @@ impl PartyApp {
 
         match self.settings_page {
             SettingsPage::General => self.display_settings_general(ui),
+            SettingsPage::Proton => self.display_settings_proton(ui),
             SettingsPage::Gamescope => self.display_settings_gamescope(ui),
         }
 
@@ -527,25 +529,6 @@ impl PartyApp {
                 self.input_devices = scan_input_devices(&self.options.pad_filter_type);
             }
         });
-
-        ui.horizontal(|ui| {
-        let proton_ver_label = ui.label("Proton version");
-        let proton_ver_editbox = ui.add(
-            egui::TextEdit::singleline(&mut self.options.proton_version)
-                .hint_text("GE-Proton"),
-        );
-        if proton_ver_label.hovered() || proton_ver_editbox.hovered() {
-            self.infotext = "DEFAULT: GE-Proton\n\nSpecify a Proton version. This can be a path, e.g. \"/path/to/proton\" or just a name, e.g. \"GE-Proton\" for the latest version of Proton-GE. If left blank, this will default to \"GE-Proton\". If unsure, leave this blank.".to_string();
-        }
-        });
-
-        let proton_separate_pfxs_check = ui.checkbox(
-            &mut self.options.proton_separate_pfxs,
-            "Run instances in separate Proton prefixes",
-        );
-        if proton_separate_pfxs_check.hovered() {
-            self.infotext = "DEFAULT: Enabled\n\nRuns each instance in separate Proton prefixes. If unsure, leave this checked. Multiple prefixes takes up more disk space, but generally provides better compatibility and fewer issues with Proton-based games.".to_string();
-        }
         
         let profile_unique_dirs_check = ui.checkbox(
             &mut self.options.profile_unique_dirs,
@@ -573,6 +556,44 @@ impl PartyApp {
 
         ui.separator();
 
+        if ui.button("Open PartyDeck Data Folder").clicked() {
+            if let Err(_) = std::process::Command::new("xdg-open")
+                .arg(PATH_PARTY.clone())
+                .status()
+            {
+                msg("Error", "Couldn't open PartyDeck Data Folder!");
+            }
+        }
+    }
+
+    pub fn display_settings_proton(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+        let proton_ver_label = ui.label("Proton version");
+        let proton_ver_editbox = ui.add(
+            egui::TextEdit::singleline(&mut self.options.proton_version)
+                .hint_text("GE-Proton"),
+        );
+        if proton_ver_label.hovered() || proton_ver_editbox.hovered() {
+            self.infotext = "DEFAULT: GE-Proton\n\nSpecify a Proton version. This can be a path, e.g. \"/path/to/proton\" or just a name, e.g. \"GE-Proton\" for the latest version of Proton-GE. If left blank, this will default to \"GE-Proton\". If unsure, leave this blank.".to_string();
+        }
+        });
+
+        let proton_separate_pfxs_check = ui.checkbox(
+            &mut self.options.proton_separate_pfxs,
+            "Run instances in separate Proton prefixes",
+        );
+        if proton_separate_pfxs_check.hovered() {
+            self.infotext = "DEFAULT: Enabled\n\nRuns each instance in separate Proton prefixes. If unsure, leave this checked. Multiple prefixes takes up more disk space, but generally provides better compatibility and fewer issues with Proton-based games.".to_string();
+        }
+        
+        let proton_wow64_check = ui.checkbox(
+            &mut self.options.proton_wow64,
+            "Run Proton in WoW64 mode",
+        );
+        if proton_wow64_check.hovered() {
+            self.infotext = "DEFAULT: Enabled\n\nRuns Proton games in the new Wine WoW64 mode. If unsure, leave this checked.".to_string();
+        }
+        
         if ui.button("Erase All Proton Prefix Data").clicked() {
             if yesno(
                 "Erase Prefix?",
@@ -586,17 +607,8 @@ impl PartyApp {
                 }
             }
         }
-
-        if ui.button("Open PartyDeck Data Folder").clicked() {
-            if let Err(_) = std::process::Command::new("xdg-open")
-                .arg(PATH_PARTY.clone())
-                .status()
-            {
-                msg("Error", "Couldn't open PartyDeck Data Folder!");
-            }
-        }
     }
-
+    
     pub fn display_settings_gamescope(&mut self, ui: &mut Ui) {
         let gamescope_lowres_fix_check = ui.checkbox(
             &mut self.options.gamescope_fix_lowres,

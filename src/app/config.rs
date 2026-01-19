@@ -34,6 +34,8 @@ pub struct PartyConfig {
     pub proton_version: String,
     #[serde(default = "default_true")]
     pub proton_separate_pfxs: bool,
+    #[serde(default = "default_true")]
+    pub proton_wow64: bool,
     #[serde(default)]
     pub vertical_two_player: bool,
     #[serde(default)]
@@ -56,6 +58,7 @@ impl Default for PartyConfig {
             kbm_support: true,
             proton_version: "".to_string(),
             proton_separate_pfxs: true,
+            proton_wow64: true,
             vertical_two_player: false,
             pad_filter_type: PadFilterType::NoSteamInput,
             allow_multiple_instances_on_same_device: false,
