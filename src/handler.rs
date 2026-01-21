@@ -135,10 +135,13 @@ impl Handler {
     }
 
     pub fn win(&self) -> bool {
-        self.exec.ends_with(".exe") || 
-        self.exec.ends_with(".EXE") || 
-        self.exec.ends_with(".bat") ||
-        self.exec.ends_with(".BAT")
+        let extension: &str = Path::new(self.exec.as_str())
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default();
+        
+        let lowercase_extension = extension.to_ascii_lowercase();
+        lowercase_extension == "exe" || lowercase_extension == "bat" || lowercase_extension == "cmd"
     }
 
     pub fn is_saved_handler(&self) -> bool {
