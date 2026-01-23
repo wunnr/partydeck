@@ -317,6 +317,15 @@ pub fn scan_handlers() -> Vec<Handler> {
     out
 }
 
+pub fn load_handler_by_name(name: &str) -> Result<Handler, Box<dyn Error>> {
+    let handlers = scan_handlers();
+    
+    handlers
+        .into_iter()
+        .find(|h| h.name == name || h.handler_dir_name() == name)
+        .ok_or_else(|| format!("Handler '{}' not found", name).into())
+}
+
 pub fn import_pd2() -> Result<(), Box<dyn Error>> {
     let Some(file) = FileDialog::new()
         .set_title("Select File")
