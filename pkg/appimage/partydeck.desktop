@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=partydeck
+Comment=A split-screen game launcher for Linux/SteamOS
+Exec=partydeck
+Icon=partydeck
+StartupWMClass=partydeck
+Terminal=false
+Type=Application
+Categories=Game;
+Keywords=splitscreen;gamescope;
