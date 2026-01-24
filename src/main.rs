@@ -45,8 +45,14 @@ fn main() -> eframe::Result {
 
     if let Some(layout_index) = args.iter().position(|arg| arg == "--internal-layout") {
         if let Some(next_arg) = args.get(layout_index + 1) {
-            let exec: i32 = next_arg.parse::<i32>().expect("Cant parse layout fd");
-            layout_manager::start_layout_manager(exec, &monitors[0]);
+            let layout_args_parts: Vec<&str> = next_arg.split(":").collect();
+            let [fd_str, width_str, height_str] = layout_args_parts.as_slice() else {
+                panic!("Expected 3 layout arguments: openfd:width:height");
+            };
+            let layout_fd: i32 = fd_str.parse().expect("Cant parse layout fd");
+            let layout_width: i32 = width_str.parse().expect("Cant parse layout width");
+            let layout_height: i32 = height_str.parse().expect("Cant parse layout height");
+            layout_manager::start_layout_manager(layout_fd, layout_width, layout_height);
             std::process::exit(0);
         } else {
             println!("ERROR: --internal-layout is an internal api, partydeck SHOULD NOT be started with --internal-layout unless you know what your doing");

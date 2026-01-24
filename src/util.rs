@@ -288,18 +288,18 @@ pub fn spawn_comp_and_get_display(comp_executable: &str, primary_monitor: Monito
 
     match comp_executable {
         "river" => {
-            cmd.args(["-c",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+            cmd.args(["-c",format!("{} --internal-layout {}:{}:{}", base_program, &write_fd.into_raw_fd(), primary_monitor.width(), primary_monitor.height()).as_str()]);
         },
         "kwin_wayland"  => {
             cmd.args([
                 "--xwayland","--exit-with-session",
                 "--height", &primary_monitor.height.to_string(),
                 "--width", &primary_monitor.width.to_string(),
-                "--",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+                "--",format!("{} --internal-layout {}:{}:{}", base_program, &write_fd.into_raw_fd(), primary_monitor.width(), primary_monitor.height()).as_str()]);
         },
         _=> {
             println!("Unknown comp ({}); trusting that it works, MAY FAIL", comp_executable);
-            cmd.args(["--",format!("{} --internal-layout {}", base_program, &write_fd.into_raw_fd()).as_str()]);
+            cmd.args(["--",format!("{} --internal-layout {}:{}:{}", base_program, &write_fd.into_raw_fd(), primary_monitor.width(), primary_monitor.height()).as_str()]);
         },
     }
     
@@ -334,7 +334,7 @@ pub fn spawn_comp_and_get_display(comp_executable: &str, primary_monitor: Monito
     let monitor_width = u32::from_be_bytes(len_buf);
     reader.read_exact(&mut len_buf).expect("Failed to read FD");
     let monitor_height = u32::from_be_bytes(len_buf);
-    let main_monitor = Monitor { name: "REMOTE_MONITOR".to_owned(), width: monitor_width, height: monitor_height };
+    let remote_monitor = Monitor { name: "REMOTE_MONITOR".to_owned(), width: monitor_width, height: monitor_height };
 
 
     let mut way_disp_buf = vec![0u8; way_disp_len];
@@ -347,5 +347,5 @@ pub fn spawn_comp_and_get_display(comp_executable: &str, primary_monitor: Monito
 
     println!("Got DISPLAY_WAYLAND from COMP: {} and DISPLAY: {}, with resolution: {}x{}", way_disp, x11_disp, monitor_width, monitor_height);
     
-    return Some((way_disp.to_string(), x11_disp.to_string(), main_monitor, child_pid));
+    return Some((way_disp.to_string(), x11_disp.to_string(), remote_monitor, child_pid));
 }

@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 use wayland_client::Connection;
 use wayland_client::Dispatch;
+use wayland_client::Proxy;
 use wayland_client::protocol::wl_output::WlOutput;
 use wayland_client::protocol::wl_registry::WlRegistry;
 use wayland_client::protocol::wl_registry::{Event as RegistryEvent};
@@ -15,16 +16,62 @@ use crate::layout_manager::wayland_client_code::river_layout_v3::river_layout_v3
 use crate::layout_manager::wayland_client_code::river_layout_v3::river_layout_manager_v3::RiverLayoutManagerV3;
 use crate::layout_manager::wayland_client_code::river_control_unstable_v1::zriver_command_callback_v1::ZriverCommandCallbackV1;
 use crate::layout_manager::wayland_client_code::river_control_unstable_v1::zriver_control_v1::ZriverControlV1;
+
+use crate::layout_manager::wayland_client_code::wlr_output_mgmt_unstable_v1::zwlr_output_manager_v1;
+use crate::layout_manager::wayland_client_code::wlr_output_mgmt_unstable_v1::zwlr_output_manager_v1::ZwlrOutputManagerV1;
+use crate::layout_manager::wayland_client_code::wlr_output_mgmt_unstable_v1::zwlr_output_head_v1::ZwlrOutputHeadV1;
+use crate::layout_manager::wayland_client_code::wlr_output_mgmt_unstable_v1::zwlr_output_configuration_head_v1::ZwlrOutputConfigurationHeadV1;
+use crate::layout_manager::wayland_client_code::wlr_output_mgmt_unstable_v1::zwlr_output_mode_v1::ZwlrOutputModeV1;
+use crate::layout_manager::wlr_output_mgmt_unstable_v1::zwlr_output_configuration_v1;
+use crate::layout_manager::wlr_output_mgmt_unstable_v1::zwlr_output_configuration_v1::ZwlrOutputConfigurationV1;
+
+
 use std::env;
 use super::super::Monitor;
+use super::super::get_monitors_errorless;
+
+
+use wayland_client::QueueHandle;
+use wayland_client::{backend::ObjectData};
+use std::sync::Arc;
+
+
+struct DummyData {
+    respond_to_opcode: bool,
+}
+impl ObjectData for DummyData {
+    fn event(
+            self: Arc<Self>,
+            _backend: &wayland_backend::client::Backend,
+            msg: wayland_backend::protocol::Message<wayland_backend::client::ObjectId, std::os::unix::prelude::OwnedFd>,
+        ) -> Option<Arc<dyn ObjectData>> {
+            // println!("Opcode retrived: {}, {}; ",msg.opcode, msg.sender_id);
+
+            // I dont know, I was debugging, and 3 requies a new dummy object (if we do for the other is also crashes)...
+            // Refers to evt: zwlr_output_head_v1#XXXXXXXXXX.mode(new id zwlr_output_mode_v1#XXXXXXXXXX)
+            // Using the "respond_to_opcode" bool to make the child not respond to zwlr_output_mode_v1#XXXXXXXXXX.finished()
+            if msg.opcode == 3 && self.respond_to_opcode {
+                Some(Arc::new(DummyData {respond_to_opcode: false}))
+            } else {
+                None
+            }
+    }
+    fn destroyed(&self, _object_id: wayland_backend::client::ObjectId) {}
+}
 
 struct LayoutState {
     river_layout: Option<RiverLayoutV3>,
     river_layout_man: Option<RiverLayoutManagerV3>,
     river_control: Option<ZriverControlV1>,
+    wlr_output: Option<ZwlrOutputManagerV1>,
+    output_head: Option<ZwlrOutputHeadV1>,
+    pending_config: Option<ZwlrOutputConfigurationV1>,
+    wlr_output_done: bool,
     seat: Option<WlSeat>,
     outputs_name: u32,
     outputs: usize,
+    layout_width: i32,
+    layout_height: i32,
 }
 impl Dispatch<WlRegistry, ()> for LayoutState {
     fn event(
@@ -37,7 +84,11 @@ impl Dispatch<WlRegistry, ()> for LayoutState {
         ) {
         match event {
             RegistryEvent::Global { name, interface, version } => {
-
+                // println!("Interface offered: {interface}");
+                if interface == "zwlr_output_manager_v1" {
+                    let wlr_output_mgr = registry.bind::<ZwlrOutputManagerV1, _, _>(name, version, qh, ());
+                    state.wlr_output = Some(wlr_output_mgr);
+                }
                 if interface == "zriver_control_v1" {
                     let control = registry.bind::<ZriverControlV1, _, _>(name, version, qh, ());
                     state.river_control = Some(control);
@@ -89,6 +140,73 @@ impl Dispatch<WlRegistry, ()> for LayoutState {
         }
     }
 }
+
+impl Dispatch<ZwlrOutputManagerV1, ()> for LayoutState {
+    fn event(
+        state: &mut Self,
+        _proxy: &ZwlrOutputManagerV1,
+        event: <ZwlrOutputManagerV1 as wayland_client::Proxy>::Event,
+        _: &(),
+        _: &Connection,
+        qh: &wayland_client::QueueHandle<Self>,
+    ) {
+        match event {
+            zwlr_output_manager_v1::Event::Done { serial }  => {
+                if !state.wlr_output_done {
+                    if let Some(output_manager) = &state.wlr_output {
+                    if let Some(head) = &state.output_head {
+                            let output_config = output_manager.create_configuration(serial, qh, ());
+                            let output_config_head = output_config.enable_head(head, qh, ());
+                            output_config_head.set_custom_mode(state.layout_width, state.layout_height, 0); // Refresh must be 0 or will be denied by some compositors
+                            output_config.apply();
+                            state.pending_config = Some(output_config);
+                    }
+                    }
+                }
+            }
+            zwlr_output_manager_v1::Event::Head { head }  => {
+                state.output_head = Some(head);
+            }
+            _ => {}
+        }
+    }
+
+    
+    fn event_created_child(_opcode: u16, _qh: &QueueHandle<Self>) -> Arc<dyn ObjectData> {
+        println!("Output manager created child");
+        Arc::new(DummyData {respond_to_opcode: true})
+    }
+}
+
+
+
+impl Dispatch<ZwlrOutputConfigurationV1, ()> for LayoutState {
+    fn event(
+        state: &mut Self,
+        proxy: &ZwlrOutputConfigurationV1,
+        event: <ZwlrOutputConfigurationV1 as Proxy>::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
+        match event {
+            zwlr_output_configuration_v1::Event::Succeeded => {
+                println!("configuration succeeded");
+                state.wlr_output_done = true;
+                proxy.destroy();
+                state.pending_config = None;
+            }
+            zwlr_output_configuration_v1::Event::Failed => {
+                println!("configuration failed");
+                state.wlr_output_done = true;
+                proxy.destroy();
+                state.pending_config = None;
+            }
+            _ => {}
+        }
+    }
+}
+
 
 impl Dispatch<RiverLayoutV3, ()> for LayoutState {
     fn event(
@@ -156,15 +274,20 @@ macro_rules! impl_empty_dispatch {
     };
 }
 
-impl_empty_dispatch!(LayoutState,ZriverCommandCallbackV1);
-impl_empty_dispatch!(LayoutState,ZriverControlV1);
-impl_empty_dispatch!(LayoutState,RiverLayoutManagerV3);
-impl_empty_dispatch!(LayoutState,WlSeat);
-impl_empty_dispatch!(LayoutState,WlOutput);
+
+impl_empty_dispatch!(LayoutState, ZriverCommandCallbackV1);
+impl_empty_dispatch!(LayoutState, ZriverControlV1);
+impl_empty_dispatch!(LayoutState, RiverLayoutManagerV3);
+impl_empty_dispatch!(LayoutState, WlSeat);
+impl_empty_dispatch!(LayoutState, WlOutput);
 
 
+impl_empty_dispatch!(LayoutState, ZwlrOutputConfigurationHeadV1);
+impl_empty_dispatch!(LayoutState, ZwlrOutputModeV1);
+impl_empty_dispatch!(LayoutState, ZwlrOutputHeadV1);
 
-pub fn start_layout_manager(fd: i32, main_monitor: &Monitor) { // , layout_manager: LayoutManagerType
+
+fn flush_file_data_layout_manager(fd: i32, main_monitor: &Monitor) {
     let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
 
     let way_disp_str = env::var_os("WAYLAND_DISPLAY").expect("Failed to decode wayland display");
@@ -183,6 +306,10 @@ pub fn start_layout_manager(fd: i32, main_monitor: &Monitor) { // , layout_manag
 
     let _ = file.flush();
     drop(file);
+}
+
+pub fn start_layout_manager(fd: i32, layout_width: i32, layout_height: i32) {
+ 
 
     let conn = Connection::connect_to_env().expect("Failed to connect to wayland session");
     let mut event_queue = conn.new_event_queue();
@@ -193,15 +320,38 @@ pub fn start_layout_manager(fd: i32, main_monitor: &Monitor) { // , layout_manag
         river_layout: None,
         river_layout_man: None,
         river_control: None,
+        wlr_output: None,
+        pending_config: None,
+        wlr_output_done: false,
+        output_head: None,
         seat: None,
         outputs_name: 0,
-        outputs: 0
+        outputs: 0,
+        layout_width: layout_width,
+        layout_height: layout_height,
     };
 
+    let mut has_sent_data = false;
     loop {
         if let Err(e) = event_queue.blocking_dispatch(&mut state) {
             eprintln!("Wayland connection closed {e}");
             break;
+        }
+
+        // Used so we can maybe wait for wlr to attempt connection resize
+        if (state.wlr_output == None || state.wlr_output_done) && !has_sent_data {
+            let monitors = get_monitors_errorless();
+            println!("[Layout] Monitors detected:");
+            for monitor in &monitors {
+                println!(
+                    "[Layout] {} ({}x{})",
+                    monitor.name(),
+                    monitor.width(),
+                    monitor.height()
+                );
+            }
+            flush_file_data_layout_manager(fd, &monitors[0]);
+            has_sent_data = true;
         }
     }
 
