@@ -9,6 +9,21 @@ use crate::paths::*;
 use crate::profiles::{create_profile, create_profile_gamesave};
 use crate::util::*;
 
+/// Legacy /dev/input/jsN nodes belonging to the same physical device as an evdev node.
+fn js_siblings(evdev_path: &str) -> Vec<String> {
+    let Some(name) = Path::new(evdev_path).file_name().and_then(|s| s.to_str()) else {
+        return Vec::new();
+    };
+    std::fs::read_dir(format!("/sys/class/input/{name}/device"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|e| e.file_name().to_str().map(str::to_string))
+        .filter(|n| n.starts_with("js"))
+        .map(|n| format!("/dev/input/{n}"))
+        .collect()
+}
+
 pub fn setup_profiles(
     h: &Handler,
     instances: &Vec<Instance>,
@@ -239,16 +254,32 @@ pub fn launch_cmds(
         cmd.arg("--die-with-parent");
         cmd.args(["--dev-bind", "/", "/"]);
         cmd.args(["--tmpfs", "/tmp"]);
-        // Mask out any gamepads that aren't this player's
+
+        // Only expose this instance to the input devices specifically associated with it
+        cmd.args(["--tmpfs", "/dev/input"]);
         for (d, dev) in input_devices.iter().enumerate() {
             if !dev.enabled
                 || (!instance.devices.contains(&d) && dev.device_type == DeviceType::Gamepad)
             {
-                cmd.args(["--bind", "/dev/null", &dev.path]);
-                // Wine's winebus reads controllers via /dev/hidraw* when
-                // hidraw is exposed, so masking only the evdev node leaks
-                // input to every instance.
-                if h.enable_hidraw {
+                continue;
+            }
+            if Path::new(&dev.path).exists() {
+                cmd.args(["--dev-bind", &dev.path, &dev.path]);
+            }
+            // Also expose the device's js sibling for games that use the legacy Joystick API
+            for js in js_siblings(&dev.path) {
+                cmd.args(["--dev-bind", &js, &js]);
+            }
+        }
+        
+        // hidraw is not under /dev/input, so it still has to be masked rather than omitted.
+        // Wine's winebus reads controllers through it when hidraw is exposed, and leaving it
+        // open leaks input to every instance.
+        if h.enable_hidraw {
+            for (d, dev) in input_devices.iter().enumerate() {
+                if !dev.enabled
+                    || (!instance.devices.contains(&d) && dev.device_type == DeviceType::Gamepad)
+                {
                     for hp in &dev.hidraw_paths {
                         cmd.args(["--bind", "/dev/null", hp]);
                     }
