@@ -255,22 +255,7 @@ pub fn launch_cmds(
         cmd.args(["--dev-bind", "/", "/"]);
         cmd.args(["--tmpfs", "/tmp"]);
 
-        // Show this instance only the devices it should see, rather than hiding the ones it
-        // should not.
-        //
-        // Masking works on the devices that exist when bwrap starts. Anything that appears
-        // afterwards was never masked anywhere, so it is visible to EVERY instance at once.
-        // That is not an edge case with wireless pads: they power themselves off when idle,
-        // and waking one destroys its kernel device and creates a new one, usually on a
-        // different /dev/input/eventN. The player wakes their pad and starts driving all four
-        // games.
-        //
-        // It cannot be fixed by masking harder, because you cannot bind over a path that does
-        // not exist yet. The list has to be inverted.
-        //
-        // The visibility rules are unchanged: a device is bound in unless it is disabled, or
-        // it is a gamepad assigned to somebody else. A device that shows up later is now
-        // simply absent instead of shared.
+        // Only expose this instance to the input devices specifically associated with it
         cmd.args(["--tmpfs", "/dev/input"]);
         for (d, dev) in input_devices.iter().enumerate() {
             if !dev.enabled
@@ -281,12 +266,12 @@ pub fn launch_cmds(
             if Path::new(&dev.path).exists() {
                 cmd.args(["--dev-bind", &dev.path, &dev.path]);
             }
-            // Legacy /dev/input/jsN nodes are a separate file for the same device. evdev is
-            // preferred by SDL2, but titles that open jsN would find nothing under a tmpfs.
+            // Also expose the device's js sibling for games that use the legacy Joystick API
             for js in js_siblings(&dev.path) {
                 cmd.args(["--dev-bind", &js, &js]);
             }
         }
+        
         // hidraw is not under /dev/input, so it still has to be masked rather than omitted.
         // Wine's winebus reads controllers through it when hidraw is exposed, and leaving it
         // open leaks input to every instance.
