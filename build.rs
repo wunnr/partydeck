@@ -84,7 +84,7 @@ macro_rules! build_println {
 #[allow(dead_code)]
 fn apply_patches(deps_dir: &std::path::Path) {
     let mut git_apply = std::process::Command::new("git");
-    git_apply.args(["apply", &deps_dir.join("deps.patch").to_string_lossy()]);
+    git_apply.args(["apply", "--allow-empty", &deps_dir.join("deps.patch").to_string_lossy()]);
     let _ = git_apply.spawn().map_err(|e| {
         build_println!("Failed to git apply the patches we have for our deps, this is most likely not a real error: {:?} - {:?}", git_apply.get_program().to_string_lossy(), e);
     });
